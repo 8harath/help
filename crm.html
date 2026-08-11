@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Returns Tracker</title>
+<style>
+  :root {
+    --bg:        #f4f5f7;
+    --panel:     #ffffff;
+    --ink:       #1c2024;
+    --ink-soft:  #5c6570;
+    --line:      #e2e5ea;
+    --line-soft: #eef0f3;
+    --accent:    #2f6feb;
+
+    --yes-bg:   #e6f6ec;  --yes-ink:   #1a7f43;  --yes-line:   #b6e2c6;
+    --no-bg:    #fdeaea;  --no-ink:    #b3261e;  --no-line:    #f3c2bf;
+    --issue-bg: #fff4e0;  --issue-ink: #9a5b00;  --issue-line: #f2d69b;
+    --null-bg:  #f5f6f8;  --null-ink:  #8b949e;  --null-line:  #e4e7eb;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- top bar ---------- */
+
+  header.topbar {
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    font-size: 16px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-right: auto;
+  }
+  .brand small {
+    display: block;
+    font-weight: 400;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    letter-spacing: 0;
+  }
+
+  button, .filebtn {
+    font: inherit;
+    font-weight: 550;
+    padding: 7px 13px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:hover, .filebtn:hover { background: #f7f8fa; border-color: #d3d8df; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  .filebtn {
+    display: inline-block;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .filebtn:hover { background: #2560d4; border-color: #2560d4; }
+  input[type=file] { display: none; }
+
+  /* ---------- summary ---------- */
+
+  .summary {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 14px 20px 0;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 9px 14px;
+    min-width: 112px;
+  }
+  .stat b { display: block; font-size: 20px; font-weight: 650; line-height: 1.2; }
+  .stat span { font-size: 11.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; }
+  .stat.ok  b { color: var(--yes-ink); }
+  .stat.bad b { color: var(--issue-ink); }
+
+  /* ---------- controls ---------- */
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 14px 20px;
+  }
+  .controls label { font-size: 12px; color: var(--ink-soft); }
+  select, input[type=search] {
+    font: inherit;
+    padding: 6px 9px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+  }
+  input[type=search] { min-width: 200px; }
+  .controls .spacer { margin-left: auto; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); }
+
+  .legend { display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--ink-soft); }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+  /* ---------- banners ---------- */
+
+  .banner {
+    margin: 0 20px 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .banner.warn { background: var(--issue-bg); border: 1px solid var(--issue-line); color: var(--issue-ink); }
+  .banner.info { background: #eaf1fe; border: 1px solid #c9dbfb; color: #1b4fbf; }
+  .banner.err  { background: var(--no-bg);   border: 1px solid var(--no-line);   color: var(--no-ink); }
+  .banner button { padding: 4px 10px; font-size: 12px; }
+  .banner .grow { margin-right: auto; }
+
+  /* ---------- table ---------- */
+
+  .tablewrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    margin: 0 20px 20px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  table { border-collapse: separate; border-spacing: 0; width: 100%; }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #fbfcfd;
+    border-bottom: 1px solid var(--line);
+    padding: 9px 10px;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 650;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    white-space: nowrap;
+  }
+  thead th.sortable { cursor: pointer; }
+  thead th.sortable:hover { color: var(--ink); }
+  thead th.flagcol { text-align: center; }
+
+  tbody td {
+    border-bottom: 1px solid var(--line-soft);
+    padding: 6px 10px;
+    vertical-align: middle;
+  }
+  tbody tr:hover td { background: #fcfcfd; }
+  tbody tr.has-issue td:first-child { box-shadow: inset 3px 0 0 var(--issue-ink); }
+  tbody tr.done td:first-child      { box-shadow: inset 3px 0 0 var(--yes-ink); }
+
+  tr.grouprow td {
+    background: #f2f4f7;
+    font-size: 11.5px;
+    font-weight: 650;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 6px 10px;
+  }
+
+  .id      { font-weight: 600; word-break: break-all; min-width: 150px; }
+  .id small { display: block; font-weight: 400; font-size: 11px; color: var(--ink-soft); word-break: break-all; }
+  .date    { color: var(--ink-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .statecell { white-space: nowrap; min-width: 150px; }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: #eceff3;
+    color: #40484f;
+    border: 1px solid #dfe3e8;
+    cursor: pointer;
+    margin-right: 6px;
+  }
+  .badge:hover { background: #e2e7ee; }
+  .statename { color: var(--ink-soft); font-size: 12.5px; }
+
+  select.flag {
+    width: 100%;
+    min-width: 74px;
+    text-align: center;
+    text-align-last: center;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 5px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  select.flag.v-yes   { background: var(--yes-bg);   color: var(--yes-ink);   border-color: var(--yes-line); }
+  select.flag.v-no    { background: var(--no-bg);    color: var(--no-ink);    border-color: var(--no-line); }
+  select.flag.v-issue { background: var(--issue-bg); color: var(--issue-ink); border-color: var(--issue-line); }
+  select.flag.v-null  { background: var(--null-bg);  color: var(--null-ink);  border-color: var(--null-line); font-weight: 400; }
+
+  select.assign { font-size: 12px; padding: 4px 6px; border-color: var(--issue-line); background: var(--issue-bg); color: var(--issue-ink); }
+
+  input.remarks {
+    font: inherit;
+    width: 100%;
+    min-width: 190px;
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink);
+  }
+  input.remarks:hover { border-color: var(--line); }
+  input.remarks:focus { border-color: var(--accent); background: #fff; outline: none; }
+
+  /* ---------- empty state ---------- */
+
+  .empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--ink-soft);
+    padding: 40px 20px 80px;
+    text-align: center;
+  }
+  .empty h2 { color: var(--ink); font-size: 19px; margin: 0; font-weight: 650; }
+  .empty p { margin: 0; max-width: 46ch; }
+  .empty code { background: #e9ebef; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    Returns Tracker
+    <small id="folderLabel">No manifest loaded</small>
+  </div>
+  <label class="filebtn" for="fileInput">Import manifest.json</label>
+  <input type="file" id="fileInput" accept=".json,application/json">
+  <button id="exportJson" disabled>Export JSON</button>
+  <button id="exportCsv" disabled>Export CSV (Excel)</button>
+</header>
+
+<div id="banners"></div>
+
+<section class="summary hidden" id="summary"></section>
+
+<section class="controls hidden" id="controls">
+  <input type="search" id="search" placeholder="Search ID, file or remarks...">
+  <label for="stateFilter">State</label>
+  <select id="stateFilter"><option value="">All</option></select>
+  <label for="statusFilter">Show</label>
+  <select id="statusFilter">
+    <option value="all">Everything</option>
+    <option value="issue">Has an issue</option>
+    <option value="done">Fully qualified</option>
+    <option value="progress">In progress</option>
+    <option value="none">Not started</option>
+    <option value="nostate">Needs state assignment</option>
+  </select>
+  <label for="sortBy">Sort</label>
+  <select id="sortBy">
+    <option value="id">ID</option>
+    <option value="state">State</option>
+    <option value="date">Date received</option>
+    <option value="issues">Issues first</option>
+  </select>
+  <label class="chk"><input type="checkbox" id="groupState"> Group by state</label>
+  <div class="spacer"></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--null-line)"></i>Not started</span>
+    <span><i class="swatch" style="background:var(--yes-ink)"></i>Yes</span>
+    <span><i class="swatch" style="background:var(--no-ink)"></i>No</span>
+    <span><i class="swatch" style="background:var(--issue-ink)"></i>Issue</span>
+  </div>
+</section>
+
+<div class="tablewrap hidden" id="tablewrap">
+  <table>
+    <thead><tr id="headRow"></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<div class="empty" id="emptyState">
+  <h2>No manifest loaded</h2>
+  <p>Run <code>intake.ps1</code> inside the assignment folder, then import the
+     <code>manifest.json</code> it wrote. Re-importing a previously exported
+     JSON continues exactly where you left off.</p>
+  <p><label class="filebtn" for="fileInput">Import manifest.json</label></p>
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Reference data
+ * ------------------------------------------------------------------ */
+
+var STATES = {
+  AL:"Alabama", AK:"Alaska", AZ:"Arizona", AR:"Arkansas", CA:"California",
+  CO:"Colorado", CT:"Connecticut", DE:"Delaware", DC:"District of Columbia",
+  FL:"Florida", GA:"Georgia", HI:"Hawaii", ID:"Idaho", IL:"Illinois",
+  IN:"Indiana", IA:"Iowa", KS:"Kansas", KY:"Kentucky", LA:"Louisiana",
+  ME:"Maine", MD:"Maryland", MA:"Massachusetts", MI:"Michigan", MN:"Minnesota",
+  MS:"Mississippi", MO:"Missouri", MT:"Montana", NE:"Nebraska", NV:"Nevada",
+  NH:"New Hampshire", NJ:"New Jersey", NM:"New Mexico", NY:"New York",
+  NC:"North Carolina", ND:"North Dakota", OH:"Ohio", OK:"Oklahoma",
+  OR:"Oregon", PA:"Pennsylvania", RI:"Rhode Island", SC:"South Carolina",
+  SD:"South Dakota", TN:"Tennessee", TX:"Texas", UT:"Utah", VT:"Vermont",
+  VA:"Virginia", WA:"Washington", WV:"West Virginia", WI:"Wisconsin",
+  WY:"Wyoming"
+};
+
+var FLAGS = [
+  { key:"attachments_present", short:"Attach",   label:"Attachments present" },
+  { key:"data_accurate",       short:"Data",     label:"Data accurate" },
+  { key:"qualifying",          short:"Qualify",  label:"Qualifying" },
+  { key:"xml_flowing",         short:"XML flow", label:"XML flowing" },
+  { key:"xml_downloaded",      short:"XML DL",   label:"XML downloaded" },
+  { key:"batch_downloaded",    short:"Batch",    label:"Batch downloaded" },
+  { key:"recon_checked",       short:"Recon",    label:"Recon checked" },
+  { key:"tfr_checked",         short:"TFR",      label:"TFR checked" }
+];
+
+var FLAG_VALUES = ["yes", "no", "issue"];
+var DRAFT_KEY = "returns-tracker-draft-v1";
+
+/* ------------------------------------------------------------------ *
+ * State
+ * ------------------------------------------------------------------ */
+
+var manifest = null;   // the imported object, mutated in place so unknown keys survive
+var rowRefs  = [];     // parallel array of { ret: <object>, i: <index in manifest.returns> }
+
+var el = {
+  fileInput:    document.getElementById("fileInput"),
+  exportJson:   document.getElementById("exportJson"),
+  exportCsv:    document.getElementById("exportCsv"),
+  folderLabel:  document.getElementById("folderLabel"),
+  banners:      document.getElementById("banners"),
+  summary:      document.getElementById("summary"),
+  controls:     document.getElementById("controls"),
+  tablewrap:    document.getElementById("tablewrap"),
+  headRow:      document.getElementById("headRow"),
+  rows:         document.getElementById("rows"),
+  emptyState:   document.getElementById("emptyState"),
+  search:       document.getElementById("search"),
+  stateFilter:  document.getElementById("stateFilter"),
+  statusFilter: document.getElementById("statusFilter"),
+  sortBy:       document.getElementById("sortBy"),
+  groupState:   document.getElementById("groupState")
+};
+
+/* ------------------------------------------------------------------ *
+ * Small helpers
+ * ------------------------------------------------------------------ */
+
+function esc(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function todayISO() {
+  var d = new Date();
+  function two(n) { return (n < 10 ? "0" : "") + n; }
+  return d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+}
+
+function banner(kind, html) {
+  var div = document.createElement("div");
+  div.className = "banner " + kind;
+  div.innerHTML = html;
+  el.banners.appendChild(div);
+  return div;
+}
+
+function clearBanners() { el.banners.innerHTML = ""; }
+
+function download(filename, text, mime) {
+  var blob = new Blob([text], { type: mime });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+}
+
+/* ------------------------------------------------------------------ *
+ * Per-return derived state
+ * ------------------------------------------------------------------ */
+
+function flagValue(ret, key) {
+  var v = ret.status_flags ? ret.status_flags[key] : null;
+  return FLAG_VALUES.indexOf(v) === -1 ? null : v;
+}
+
+function countFlags(ret) {
+  var c = { yes: 0, no: 0, issue: 0, none: 0 };
+  for (var i = 0; i < FLAGS.length; i++) {
+    var v = flagValue(ret, FLAGS[i].key);
+    if (v === null) { c.none++; } else { c[v]++; }
+  }
+  return c;
+}
+
+function isDone(ret)       { return countFlags(ret).yes === FLAGS.length; }
+function hasIssue(ret)     { return countFlags(ret).issue > 0; }
+function notStarted(ret)   { return countFlags(ret).none === FLAGS.length; }
+
+/* ------------------------------------------------------------------ *
+ * Import + normalise
+ * ------------------------------------------------------------------ */
+
+function normalise(parsed) {
+  if (Array.isArray(parsed)) { parsed = { returns: parsed }; }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("that file does not contain a JSON object.");
+  }
+  if (!Array.isArray(parsed.returns)) {
+    throw new Error('no "returns" array found - is this a manifest.json?');
+  }
+  if (!Array.isArray(parsed.flagged)) { parsed.flagged = []; }
+
+  var coerced = 0;
+
+  parsed.returns.forEach(function (ret, idx) {
+    if (!ret || typeof ret !== "object") { return; }
+
+    if (ret.id == null || ret.id === "") {
+      ret.id = ret.folder || ret.filename || ("return-" + (idx + 1));
+    }
+    ret.id = String(ret.id);
+
+    if (typeof ret.filename !== "string") { ret.filename = ret.filename == null ? "" : String(ret.filename); }
+    if (typeof ret.folder   !== "string") { ret.folder   = ret.folder   == null ? "" : String(ret.folder); }
+
+    var code = ret.state_code == null ? "" : String(ret.state_code).toUpperCase().trim();
+    if (code && STATES[code]) {
+      ret.state_code = code;
+      ret.state_name = STATES[code];
+    } else {
+      if (code) { coerced++; }
+      ret.state_code = null;
+      ret.state_name = null;
+    }
+
+    if (typeof ret.date_received !== "string" || !ret.date_received) {
+      ret.date_received = todayISO();
+    }
+
+    if (!ret.status_flags || typeof ret.status_flags !== "object") { ret.status_flags = {}; }
+    FLAGS.forEach(function (f) {
+      var v = ret.status_flags[f.key];
+      if (v === true)  { v = "yes"; }
+      if (v === false) { v = "no"; }
+      if (typeof v === "string") { v = v.toLowerCase().trim(); }
+      if (FLAG_VALUES.indexOf(v) === -1) {
+        if (v !== null && v !== undefined && v !== "") { coerced++; }
+        v = null;
+      }
+      ret.status_flags[f.key] = v;
+    });
+
+    if (typeof ret.remarks !== "string") {
+      ret.remarks = ret.remarks == null ? "" : String(ret.remarks);
+    }
+  });
+
+  parsed.returns = parsed.returns.filter(function (r) { return r && typeof r === "object"; });
+  return { manifest: parsed, coerced: coerced };
+}
+
+function loadManifest(parsed, sourceLabel) {
+  var result = normalise(parsed);
+  manifest = result.manifest;
+
+  clearBanners();
+
+  var folder = manifest.assignment_folder || sourceLabel || "imported manifest";
+  el.folderLabel.textContent = folder;
+  el.folderLabel.title = folder;
+
+  el.exportJson.disabled = false;
+  el.exportCsv.disabled  = false;
+  el.summary.classList.remove("hidden");
+  el.controls.classList.remove("hidden");
+  el.tablewrap.classList.remove("hidden");
+  el.emptyState.classList.add("hidden");
+
+  buildHead();
+  buildStateFilter();
+
+  var unassigned = manifest.returns.filter(function (r) { return !r.state_code; }).length;
+  if (unassigned > 0) {
+    var b = banner("warn",
+      '<span class="grow"><b>' + unassigned + '</b> return(s) have no state assigned by the intake script. ' +
+      'Pick a state in the State column to resolve them.</span>' +
+      '<button type="button" data-act="show-nostate">Show only these</button>' +
+      '<button type="button" data-act="dismiss">Dismiss</button>');
+    b.addEventListener("click", function (ev) {
+      var act = ev.target.getAttribute("data-act");
+      if (act === "show-nostate") { el.statusFilter.value = "nostate"; render(); }
+      if (act === "dismiss") { b.remove(); }
+    });
+  }
+
+  if (result.coerced > 0) {
+    banner("info", result.coerced + " field value(s) in the file were not recognised and were reset to " +
+                   '"not started" / no state. Everything else was kept as-is.');
+  }
+
+  render();
+  saveDraft();
+}
+
+function handleFile(file) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    var text = String(reader.result || "").replace(/^﻿/, "");
+    try {
+      loadManifest(JSON.parse(text), file.name);
+    } catch (err) {
+      clearBanners();
+      banner("err", "<b>Could not import " + esc(file.name) + ":</b> " + esc(err.message));
+    }
+  };
+  reader.onerror = function () {
+    clearBanners();
+    banner("err", "Could not read " + esc(file.name) + ".");
+  };
+  reader.readAsText(file);
+}
+
+/* ------------------------------------------------------------------ *
+ * Rendering
+ * ------------------------------------------------------------------ */
+
+function buildHead() {
+  var html = '<th class="sortable" data-sort="id">Return / ID</th>' +
+             '<th class="sortable" data-sort="state">State</th>' +
+             '<th class="sortable" data-sort="date">Date received</th>';
+  FLAGS.forEach(function (f) {
+    html += '<th class="flagcol" title="' + esc(f.label) + '">' + esc(f.short) + "</th>";
+  });
+  html += "<th>Remarks</th>";
+  el.headRow.innerHTML = html;
+}
+
+function buildStateFilter() {
+  var codes = {};
+  manifest.returns.forEach(function (r) { if (r.state_code) { codes[r.state_code] = true; } });
+  var list = Object.keys(codes).sort();
+
+  var html = '<option value="">All</option>';
+  list.forEach(function (c) {
+    html += '<option value="' + c + '">' + c + " &middot; " + esc(STATES[c]) + "</option>";
+  });
+  html += '<option value="__none__">(no state assigned)</option>';
+
+  var current = el.stateFilter.value;
+  el.stateFilter.innerHTML = html;
+  el.stateFilter.value = current;
+  if (el.stateFilter.selectedIndex === -1) { el.stateFilter.value = ""; }
+}
+
+function assignSelectHtml(ret) {
+  var html = '<select class="assign" data-field="state"><option value="">Assign state...</option>';
+  Object.keys(STATES).sort().forEach(function (c) {
+    html += '<option value="' + c + '">' + c + " &middot; " + esc(STATES[c]) + "</option>";
+  });
+  return html + "</select>";
+}
+
+function flagCellHtml(ret, key) {
+  var v = flagValue(ret, key);
+  var html = '<select class="flag v-' + (v === null ? "null" : v) + '" data-flag="' + key + '">';
+  html += '<option value=""' + (v === null ? " selected" : "") + ">&mdash;</option>";
+  html += '<option value="yes"'   + (v === "yes"   ? " selected" : "") + ">Yes</option>";
+  html += '<option value="no"'    + (v === "no"    ? " selected" : "") + ">No</option>";
+  html += '<option value="issue"' + (v === "issue" ? " selected" : "") + ">Issue</option>";
+  return html + "</select>";
+}
+
+function rowHtml(ret, i) {
+  var cls = hasIssue(ret) ? "has-issue" : (isDone(ret) ? "done" : "");
+
+  var stateCell = ret.state_code
+    ? '<span class="badge" data-badge="' + ret.state_code + '" title="Filter by ' + esc(STATES[ret.state_code]) + '">' +
+      ret.state_code + '</span><span class="statename">' + esc(ret.state_name || STATES[ret.state_code]) + "</span>"
+    : assignSelectHtml(ret);
+
+  var html = '<tr data-i="' + i + '" class="' + cls + '">';
+  html += '<td class="id">' + esc(ret.id) +
+          (ret.filename && ret.filename !== ret.id + ".pdf" ? "<small>" + esc(ret.filename) + "</small>" : "") +
+          "</td>";
+  html += '<td class="statecell">' + stateCell + "</td>";
+  html += '<td class="date">' + esc(ret.date_received) + "</td>";
+  FLAGS.forEach(function (f) { html += "<td>" + flagCellHtml(ret, f.key) + "</td>"; });
+  html += '<td><input class="remarks" type="text" value="' + esc(ret.remarks) +
+          '" placeholder="Add a remark..."></td>';
+  return html + "</tr>";
+}
+
+function visibleRows() {
+  var q      = el.search.value.trim().toLowerCase();
+  var state  = el.stateFilter.value;
+  var status = el.statusFilter.value;
+
+  var list = [];
+  manifest.returns.forEach(function (ret, i) { list.push({ ret: ret, i: i }); });
+
+  list = list.filter(function (row) {
+    var ret = row.ret;
+
+    if (q) {
+      var hay = (ret.id + " " + ret.filename + " " + ret.remarks + " " +
+                 (ret.state_code || "") + " " + (ret.state_name || "")).toLowerCase();
+      if (hay.indexOf(q) === -1) { return false; }
+    }
+
+    if (state === "__none__") { if (ret.state_code) { return false; } }
+    else if (state && ret.state_code !== state) { return false; }
+
+    if (status === "issue"    && !hasIssue(ret))   { return false; }
+    if (status === "done"     && !isDone(ret))     { return false; }
+    if (status === "none"     && !notStarted(ret)) { return false; }
+    if (status === "progress" && (notStarted(ret) || isDone(ret))) { return false; }
+    if (status === "nostate"  && ret.state_code)   { return false; }
+
+    return true;
+  });
+
+  var sort = el.sortBy.value;
+  var group = el.groupState.checked;
+
+  list.sort(function (a, b) {
+    if (group || sort === "state") {
+      var sa = a.ret.state_code || "ZZ";
+      var sb = b.ret.state_code || "ZZ";
+      if (sa !== sb) { return sa < sb ? -1 : 1; }
+      if (sort === "state" || group) { return a.ret.id.localeCompare(b.ret.id); }
+    }
+    if (sort === "date") {
+      var da = a.ret.date_received || "";
+      var db = b.ret.date_received || "";
+      if (da !== db) { return da < db ? -1 : 1; }
+      return a.ret.id.localeCompare(b.ret.id);
+    }
+    if (sort === "issues") {
+      var ia = countFlags(a.ret).issue;
+      var ib = countFlags(b.ret).issue;
+      if (ia !== ib) { return ib - ia; }
+      return a.ret.id.localeCompare(b.ret.id);
+    }
+    return a.ret.id.localeCompare(b.ret.id);
+  });
+
+  return list;
+}
+
+function render() {
+  if (!manifest) { return; }
+
+  rowRefs = visibleRows();
+
+  var colCount = 4 + FLAGS.length;
+  var html = "";
+  var lastState = null;
+
+  if (rowRefs.length === 0) {
+    html = '<tr><td colspan="' + colCount + '" style="padding:24px;text-align:center;color:var(--ink-soft)">' +
+           "Nothing matches the current filters.</td></tr>";
+  } else {
+    rowRefs.forEach(function (row) {
+      if (el.groupState.checked) {
+        var label = row.ret.state_code
+          ? row.ret.state_code + " · " + (row.ret.state_name || STATES[row.ret.state_code])
+          : "No state assigned";
+        if (label !== lastState) {
+          html += '<tr class="grouprow"><td colspan="' + colCount + '">' + esc(label) + "</td></tr>";
+          lastState = label;
+        }
+      }
+      html += rowHtml(row.ret, row.i);
+    });
+  }
+
+  el.rows.innerHTML = html;
+  renderSummary();
+}
+
+function renderSummary() {
+  var total = manifest.returns.length;
+  var done = 0, issues = 0, none = 0, nostate = 0;
+
+  manifest.returns.forEach(function (r) {
+    if (isDone(r))     { done++; }
+    if (hasIssue(r))   { issues++; }
+    if (notStarted(r)) { none++; }
+    if (!r.state_code) { nostate++; }
+  });
+
+  el.summary.innerHTML =
+    '<div class="stat"><b>' + total + "</b><span>Returns</span></div>" +
+    '<div class="stat ok"><b>' + done + "</b><span>Fully qualified</span></div>" +
+    '<div class="stat bad"><b>' + issues + "</b><span>With an issue</span></div>" +
+    '<div class="stat"><b>' + none + "</b><span>Not started</span></div>" +
+    '<div class="stat"><b>' + (total - done - none) + "</b><span>In progress</span></div>" +
+    '<div class="stat"><b>' + nostate + "</b><span>No state</span></div>";
+}
+
+/* ------------------------------------------------------------------ *
+ * Editing
+ * ------------------------------------------------------------------ */
+
+function returnForEvent(target) {
+  var tr = target.closest ? target.closest("tr") : null;
+  if (!tr) { return null; }
+  var i = parseInt(tr.getAttribute("data-i"), 10);
+  if (isNaN(i) || !manifest.returns[i]) { return null; }
+  return { ret: manifest.returns[i], i: i, tr: tr };
+}
+
+el.rows.addEventListener("change", function (ev) {
+  var t = ev.target;
+  var ctx = returnForEvent(t);
+  if (!ctx) { return; }
+
+  if (t.classList.contains("flag")) {
+    var key = t.getAttribute("data-flag");
+    ctx.ret.status_flags[key] = t.value === "" ? null : t.value;
+    t.className = "flag v-" + (t.value === "" ? "null" : t.value);
+    ctx.tr.className = hasIssue(ctx.ret) ? "has-issue" : (isDone(ctx.ret) ? "done" : "");
+    renderSummary();
+    saveDraft();
+    return;
+  }
+
+  if (t.getAttribute("data-field") === "state") {
+    var code = t.value;
+    if (code && STATES[code]) {
+      ctx.ret.state_code = code;
+      ctx.ret.state_name = STATES[code];
+      ctx.tr.outerHTML = rowHtml(ctx.ret, ctx.i);
+      buildStateFilter();
+      renderSummary();
+      saveDraft();
+    }
+  }
+});
+
+el.rows.addEventListener("input", function (ev) {
+  var t = ev.target;
+  if (!t.classList.contains("remarks")) { return; }
+  var ctx = returnForEvent(t);
+  if (!ctx) { return; }
+  ctx.ret.remarks = t.value;
+  saveDraftDebounced();
+});
+
+el.rows.addEventListener("click", function (ev) {
+  var code = ev.target.getAttribute && ev.target.getAttribute("data-badge");
+  if (!code) { return; }
+  el.stateFilter.value = (el.stateFilter.value === code) ? "" : code;
+  render();
+});
+
+el.headRow.addEventListener("click", function (ev) {
+  var th = ev.target.closest ? ev.target.closest("th") : null;
+  if (!th) { return; }
+  var sort = th.getAttribute("data-sort");
+  if (!sort) { return; }
+  el.sortBy.value = sort;
+  render();
+});
+
+[el.search, el.stateFilter, el.statusFilter, el.sortBy, el.groupState].forEach(function (control) {
+  control.addEventListener("input", render);
+  control.addEventListener("change", render);
+});
+
+el.fileInput.addEventListener("change", function () {
+  if (this.files && this.files[0]) { handleFile(this.files[0]); }
+  this.value = "";
+});
+
+/* ------------------------------------------------------------------ *
+ * Export
+ * ------------------------------------------------------------------ */
+
+el.exportJson.addEventListener("click", function () {
+  if (!manifest) { return; }
+  download("manifest.json", JSON.stringify(manifest, null, 2), "application/json");
+});
+
+function csvCell(value) {
+  var s = value == null ? "" : String(value);
+  if (/[",\r\n]/.test(s)) { s = '"' + s.replace(/"/g, '""') + '"'; }
+  return s;
+}
+
+function flagLabel(v) {
+  if (v === "yes")   { return "Yes"; }
+  if (v === "no")    { return "No"; }
+  if (v === "issue") { return "Issue"; }
+  return "";
+}
+
+el.exportCsv.addEventListener("click", function () {
+  if (!manifest) { return; }
+
+  var header = ["Return / ID", "Filename", "State code", "State", "Date received"];
+  FLAGS.forEach(function (f) { header.push(f.label); });
+  header.push("Remarks");
+
+  var lines = [header.map(csvCell).join(",")];
+
+  visibleRows().forEach(function (row) {
+    var r = row.ret;
+    var cells = [r.id, r.filename, r.state_code || "", r.state_name || "", r.date_received];
+    FLAGS.forEach(function (f) { cells.push(flagLabel(flagValue(r, f.key))); });
+    cells.push(r.remarks);
+    lines.push(cells.map(csvCell).join(","));
+  });
+
+  // BOM + CRLF so Excel opens it cleanly with correct encoding.
+  var csv = "﻿" + lines.join("\r\n") + "\r\n";
+  download("returns-" + todayISO() + ".csv", csv, "text/csv;charset=utf-8");
+});
+
+/* ------------------------------------------------------------------ *
+ * localStorage safety net (NOT the source of truth - the JSON file is)
+ * ------------------------------------------------------------------ */
+
+var draftTimer = null;
+
+function saveDraft() {
+  if (!manifest) { return; }
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      saved_at: new Date().toISOString(),
+      manifest: manifest
+    }));
+  } catch (e) { /* private mode / quota / file:// restrictions - ignore */ }
+}
+
+function saveDraftDebounced() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 600);
+}
+
+function offerDraftRestore() {
+  var raw;
+  try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) { return; }
+  if (!raw) { return; }
+
+  var draft;
+  try { draft = JSON.parse(raw); } catch (e) { return; }
+  if (!draft || !draft.manifest) { return; }
+
+  var when = draft.saved_at ? new Date(draft.saved_at).toLocaleString() : "an earlier session";
+  var count = Array.isArray(draft.manifest.returns) ? draft.manifest.returns.length : 0;
+
+  var b = banner("info",
+    '<span class="grow">An unsaved session from <b>' + esc(when) + "</b> (" + count +
+    " returns) is still in this browser. Restore it, or import a manifest to start fresh.</span>" +
+    '<button type="button" data-act="restore">Restore</button>' +
+    '<button type="button" data-act="discard">Discard</button>');
+
+  b.addEventListener("click", function (ev) {
+    var act = ev.target.getAttribute("data-act");
+    if (act === "restore") {
+      try { loadManifest(draft.manifest, "restored session"); }
+      catch (err) { clearBanners(); banner("err", "Could not restore: " + esc(err.message)); }
+    }
+    if (act === "discard") {
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+      b.remove();
+    }
+  });
+}
+
+offerDraftRestore();
+</script>
+</body>
+</html>
