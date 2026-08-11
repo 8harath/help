@@ -1,0 +1,259 @@
+{
+  "generated_at": "2026-08-11T10:15:00+05:30",
+  "assignment_folder": "C:\\Work\\Assignments\\2026-08-11",
+  "returns": [
+    {
+      "id": "ABC-CA",
+      "filename": "ABC-CA.pdf",
+      "folder": "ABC-CA",
+      "state_code": "CA",
+      "state_name": "California",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "CTC-01_MD510",
+      "filename": "CTC-01_MD510.pdf",
+      "folder": "CTC-01_MD510",
+      "state_code": "MD",
+      "state_name": "Maryland",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "Meridian Holdings NY",
+      "filename": "Meridian Holdings NY.pdf",
+      "folder": "Meridian Holdings NY",
+      "state_code": "NY",
+      "state_name": "New York",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "XYZ_OR_something",
+      "filename": "XYZ_OR_something.pdf",
+      "folder": "XYZ_OR_something",
+      "state_code": "OR",
+      "state_name": "Oregon",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "Blue Ridge_TX_2026",
+      "filename": "Blue Ridge_TX_2026.pdf",
+      "folder": "Blue Ridge_TX_2026",
+      "state_code": "TX",
+      "state_name": "Texas",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "Northgate-FL",
+      "filename": "Northgate-FL.pdf",
+      "folder": "Northgate-FL",
+      "state_code": "FL",
+      "state_name": "Florida",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "Cedar LLC WA",
+      "filename": "Cedar LLC WA.pdf",
+      "folder": "Cedar LLC WA",
+      "state_code": "WA",
+      "state_name": "Washington",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "Pinnacle_IL_Q2",
+      "filename": "Pinnacle_IL_Q2.pdf",
+      "folder": "Pinnacle_IL_Q2",
+      "state_code": "IL",
+      "state_name": "Illinois",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "Summit-Group-PA-01",
+      "filename": "Summit-Group-PA-01.pdf",
+      "folder": "Summit-Group-PA-01",
+      "state_code": "PA",
+      "state_name": "Pennsylvania",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "Harbor_MA_final",
+      "filename": "Harbor_MA_final.pdf",
+      "folder": "Harbor_MA_final",
+      "state_code": "MA",
+      "state_name": "Massachusetts",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "Lakeside GA 2026",
+      "filename": "Lakeside GA 2026.pdf",
+      "folder": "Lakeside GA 2026",
+      "state_code": "GA",
+      "state_name": "Georgia",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "Kestrel-CO_44",
+      "filename": "Kestrel-CO_44.pdf",
+      "folder": "Kestrel-CO_44",
+      "state_code": "CO",
+      "state_name": "Colorado",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    },
+    {
+      "id": "MASTER_FILE_2026",
+      "filename": "MASTER_FILE_2026.pdf",
+      "folder": "MASTER_FILE_2026",
+      "state_code": null,
+      "state_name": null,
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null
+      },
+      "remarks": ""
+    }
+  ],
+  "flagged": [
+    {
+      "filename": "MASTER_FILE_2026.pdf",
+      "reason": "no state code detected"
+    }
+  ]
+}
