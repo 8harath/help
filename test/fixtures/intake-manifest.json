@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-11T22:36:25+05:30",
+  "assignment_folder": "/Users/8harath/.claude/jobs/b5fb3c2a/tmp/run1",
+  "returns": [
+    {
+      "id": "NEW-07_OH222",
+      "filename": "NEW-07_OH222.pdf",
+      "folder": "NEW-07_OH222",
+      "state_code": "OH",
+      "state_name": "Ohio",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null,
+        "custom_refund_amount": null,
+        "custom_preparer": ""
+      },
+      "remarks": ""
+    },
+    {
+      "id": "AMENDED_FL_2024",
+      "filename": "AMENDED_FL_2024.pdf",
+      "folder": "AMENDED_FL_2024",
+      "state_code": "FL",
+      "state_name": "Florida",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": "yes",
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null,
+        "custom_refund_amount": 1520.25,
+        "custom_preparer": "Jane \"JQ\" Public, CPA"
+      },
+      "remarks": ""
+    },
+    {
+      "id": "CTC-01_MD510",
+      "filename": "CTC-01_MD510.pdf",
+      "folder": "CTC-01_MD510",
+      "state_code": "MD",
+      "state_name": "Maryland",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": "yes",
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null,
+        "custom_refund_amount": -300,
+        "custom_preparer": ""
+      },
+      "remarks": "has a \"quote\", a comma, and a\nnewline"
+    },
+    {
+      "id": "CTC-02_TX441",
+      "filename": "CTC-02_TX441.pdf",
+      "folder": "CTC-02_TX441",
+      "state_code": "TX",
+      "state_name": "Texas",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": "yes",
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null,
+        "custom_refund_amount": null,
+        "custom_preparer": "line1\nline2\ttabbed"
+      },
+      "remarks": ""
+    },
+    {
+      "id": "CTC-03_CA100",
+      "filename": "CTC-03_CA100.pdf",
+      "folder": "CTC-03_CA100",
+      "state_code": "CA",
+      "state_name": "California",
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null,
+        "custom_refund_amount": null,
+        "custom_preparer": ""
+      },
+      "remarks": ""
+    },
+    {
+      "id": "MASTER_FILE",
+      "filename": "MASTER_FILE.pdf",
+      "folder": "MASTER_FILE",
+      "state_code": null,
+      "state_name": null,
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": "issue",
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null,
+        "custom_refund_amount": null,
+        "custom_preparer": ""
+      },
+      "remarks": ""
+    },
+    {
+      "id": "NY-NJ-both",
+      "filename": "NY-NJ-both.pdf",
+      "folder": "NY-NJ-both",
+      "state_code": null,
+      "state_name": null,
+      "date_received": "2026-08-11",
+      "status_flags": {
+        "attachments_present": null,
+        "data_accurate": null,
+        "qualifying": null,
+        "xml_flowing": null,
+        "xml_downloaded": null,
+        "batch_downloaded": null,
+        "recon_checked": null,
+        "tfr_checked": null,
+        "custom_refund_amount": null,
+        "custom_preparer": ""
+      },
+      "remarks": ""
+    }
+  ],
+  "flagged": [
+    {
+      "filename": "MASTER_FILE.pdf",
+      "reason": "no state code detected"
+    },
+    {
+      "filename": "NY-NJ-both.pdf",
+      "reason": "multiple state codes detected: NY, NJ"
+    }
+  ],
+  "note_cards": [
+    {
+      "id": "c1",
+      "cat": "urgent",
+      "text": "call the client",
+      "pinned": true,
+      "done": false,
+      "return_id": "",
+      "created_at": "2026-08-11T10:00:00+00:00"
+    }
+  ],
+  "flags": [
+    {
+      "key": "attachments_present",
+      "short": "Attach",
+      "label": "Attachments present",
+      "type": "status"
+    },
+    {
+      "key": "data_accurate",
+      "short": "Data",
+      "label": "Data accurate",
+      "type": "status"
+    },
+    {
+      "key": "qualifying",
+      "short": "Qual",
+      "label": "Qualifying",
+      "type": "status"
+    },
+    {
+      "key": "xml_flowing",
+      "short": "Flow",
+      "label": "XML flowing",
+      "type": "status"
+    },
+    {
+      "key": "xml_downloaded",
+      "short": "XML",
+      "label": "XML downloaded",
+      "type": "status"
+    },
+    {
+      "key": "batch_downloaded",
+      "short": "Batch",
+      "label": "Batch downloaded",
+      "type": "status"
+    },
+    {
+      "key": "recon_checked",
+      "short": "Recon",
+      "label": "Recon checked",
+      "type": "status"
+    },
+    {
+      "key": "tfr_checked",
+      "short": "TFR",
+      "label": "TFR checked",
+      "type": "status"
+    },
+    {
+      "key": "custom_refund_amount",
+      "short": "Refund",
+      "label": "Refund amount",
+      "type": "number",
+      "custom": true
+    },
+    {
+      "key": "custom_preparer",
+      "short": "Preparer",
+      "label": "Preparer",
+      "type": "text",
+      "custom": true
+    }
+  ],
+  "col_labels": {},
+  "quick_notes": "snippet one\n\nsnippet two"
+}

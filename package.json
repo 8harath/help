@@ -1,0 +1,12 @@
+{
+  "name": "returns-tracker-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Regression tests for the single-file returns tracker (crm.fixed.html).",
+  "scripts": {
+    "test": "node test/crm.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  }
+}

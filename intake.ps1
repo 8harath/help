@@ -6,7 +6,8 @@
 .DESCRIPTION
     Run this from inside a freshly created assignment folder that contains the
     day's PDFs. It will:
-      1. Validate the folder (only PDFs at top level, recognizable state codes).
+      1. Validate the folder (PDFs plus known companion files at top level,
+         recognizable state codes).
       2. Print a validation summary and ask for confirmation if anything is flagged.
       3. Create one folder per PDF (filename minus .pdf) and move the PDF into it.
       4. Write manifest.json describing every return.
@@ -19,7 +20,29 @@
     Assignment folder to process. Defaults to the current working directory.
 
 .PARAMETER Force
-    Skip the Y/N confirmation prompt when files are flagged.
+    Skip the Y/N confirmation prompts (flagged returns, unrecognised top-level
+    files) and just continue.
+
+.PARAMETER StateMap
+    Path to a JSON file of hand-assigned state codes, resolved relative to the
+    current working directory. When omitted, a file named state-overrides.json
+    in the assignment folder is picked up automatically if it exists.
+
+    Format - keys are either a return id (the filename minus .pdf) or the exact
+    filename, values are 2-letter state codes. Matching is case-insensitive:
+
+        {
+          "CTC-01_MD510": "MD",
+          "weird file.pdf": "TX"
+        }
+
+    An override beats filename detection and beats a state carried forward from
+    a previous manifest, and a return fixed by an override is not flagged.
+
+.PARAMETER Log
+    Write a transcript of the run to intake-log-<timestamp>.txt in the
+    assignment folder. If the host does not support transcripts the run still
+    continues, unlogged.
 
 .EXAMPLE
     cd C:\Work\2026-08-11
@@ -28,17 +51,34 @@
 .EXAMPLE
     .\intake.ps1 -Path 'C:\Work\2026-08-11' -Force
 
+.EXAMPLE
+    .\intake.ps1 -WhatIf
+    Full dry run: validates, reports what it would do, and touches nothing.
+
+.EXAMPLE
+    .\intake.ps1 -StateMap .\fixes.json -Log
+
 .NOTES
     PowerShell 3.0+ / Windows PowerShell 5.1 compatible. No external modules,
     no admin rights required.
+
+    Exit codes:
+      0  Success (a completed -WhatIf dry run also exits 0).
+      1  Unusable input or a failed write: folder missing, path is not a folder,
+         no PDFs and no existing return folders, two PDFs mapping to the same
+         folder name, an unusable filename, an explicit -StateMap that cannot be
+         read or parsed, or manifest.json could not be built/written.
+      2  Aborted at a Y/N prompt. Nothing was changed.
 #>
 
 #Requires -Version 3.0
 
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [string] $Path = '.',
-    [switch] $Force
+    [switch] $Force,
+    [string] $StateMap = '',
+    [switch] $Log
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,6 +98,26 @@ function Write-Header {
     Write-Host ''
     Write-Host ('--- ' + $Title + ' ---') -ForegroundColor White
 }
+
+# ---------------------------------------------------------------------------
+# Transcript (-Log)
+#
+# Start-Transcript is missing or unsupported in some hosts (ISE add-ons,
+# embedded runspaces, constrained language mode), and losing a log file is
+# never a reason to lose the intake run - so every call is best-effort.
+# ---------------------------------------------------------------------------
+
+$script:TranscriptRunning = $false
+
+function Stop-IntakeTranscript {
+    if (-not $script:TranscriptRunning) { return }
+    $script:TranscriptRunning = $false
+    try { Stop-Transcript | Out-Null } catch { }
+}
+
+# An unhandled terminating error would otherwise leave the transcript open for
+# the rest of the session; close it, then let the error end the script as usual.
+trap { Stop-IntakeTranscript; break }
 
 # ---------------------------------------------------------------------------
 # State lookup: 50 states + District of Columbia
@@ -95,8 +155,13 @@ $FlagKeys = @(
     'tfr_checked'
 )
 
-# Top-level extensions that are tolerated (JSON = manifest/backups, PS1 = this script).
-$AllowedExtensions = @('.pdf', '.json', '.ps1')
+# Top-level extensions that are tolerated (JSON = manifest/backups/overrides,
+# PS1 = this script). The office formats are here because the CRM's own exports
+# land next to the returns; hard-stopping on them punished normal use.
+$AllowedExtensions = @(
+    '.pdf', '.json', '.ps1',
+    '.xlsx', '.xls', '.csv', '.txt', '.md', '.log'
+)
 
 # ---------------------------------------------------------------------------
 # Minimal JSON writer
@@ -216,7 +281,85 @@ function Get-StateCodeMatches {
         }
     }
 
-    return ,($found.ToArray())
+    # Return the codes bare, with no wrapping comma. `,$array` returns an array
+    # *containing* the array, so the caller's @(...) unwrapped to Count = 1 no
+    # matter how many codes were found: a name with no state code and a name with
+    # two both looked like exactly one match. That is why nothing was ever
+    # flagged, and why every state_code was written as ["MD"] instead of "MD".
+    # @(...) at the call site is what keeps a single code an array.
+    return $found.ToArray()
+}
+
+# ---------------------------------------------------------------------------
+# State overrides
+#
+# Detection is deliberately narrow, but a wrong guess is worse than a flag
+# because nobody sees it happen. This is the escape hatch: an explicit map of
+# return id (or exact filename) -> state code that always wins.
+#
+# Returns a case-insensitive hashtable, or $null if the file could not be used
+# at all - the caller decides whether that is fatal.
+# ---------------------------------------------------------------------------
+
+# Ordinal (not culture) comparison: filenames are not language, and a plain
+# @{} compares with CurrentCultureIgnoreCase, which mangles "I" in a Turkish
+# locale. The fallback is only there so an odd host can never break the run.
+function New-NameMap {
+    try {
+        return (New-Object -TypeName System.Collections.Hashtable `
+                           -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase))
+    }
+    catch {
+        return @{}
+    }
+}
+
+function Import-StateOverrides {
+    param([string] $MapPath)
+
+    $map = New-NameMap
+
+    try {
+        $raw = Get-Content -LiteralPath $MapPath -Raw -Encoding UTF8
+    }
+    catch {
+        Write-Flag ('  [warn] Could not read ' + $MapPath + ' (' + $_.Exception.Message + ').')
+        return $null
+    }
+
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $map }
+
+    try   { $parsed = $raw | ConvertFrom-Json }
+    catch {
+        Write-Flag ('  [warn] ' + $MapPath + ' is not valid JSON (' + $_.Exception.Message + ').')
+        return $null
+    }
+
+    # Anything that is not a JSON object would enumerate as junk "properties".
+    if ($null -eq $parsed -or $parsed -is [System.Array] -or
+        $parsed -is [string] -or $parsed -is [System.ValueType]) {
+        Write-Flag ('  [warn] ' + $MapPath + ' must be a JSON object of "name": "STATE" pairs.')
+        return $null
+    }
+
+    foreach ($prop in $parsed.PSObject.Properties) {
+        $key = [string]$prop.Name
+        if ([string]::IsNullOrWhiteSpace($key)) { continue }
+
+        $code = ([string]$prop.Value).Trim().ToUpperInvariant()
+        if (-not $States.Contains($code)) {
+            Write-Flag ('  [warn] override "' + $key + '" -> "' + [string]$prop.Value +
+                        '" is not a known state code; ignored.')
+            continue
+        }
+
+        if ($map.ContainsKey($key)) {
+            Write-Flag ('  [warn] override "' + $key + '" appears twice (case-insensitively); using ' + $code + '.')
+        }
+        $map[$key] = $code
+    }
+
+    return $map
 }
 
 # ---------------------------------------------------------------------------
@@ -249,9 +392,67 @@ function Read-ExistingManifest {
     }
 }
 
+# ---------------------------------------------------------------------------
+# Column set (works with the CRM's custom and typed columns)
+#
+# The 8 steps above are what this script knows about, but the CRM can add columns
+# of its own, and each one can hold yes/no/issue, a number, or text. Those live in
+# the manifest's `flags` array, which this script carries forward untouched as an
+# unknown top-level key.
+#
+# A brand-new PDF filed on a later run still needs an entry for every one of
+# those columns, or the return would arrive in the app with holes in it. So the
+# key set is read back out of the existing manifest rather than assumed, and each
+# key gets the empty value its own type expects: "" for text, null for the other
+# two. The app would heal a missing key on import anyway - this means it never has
+# to, and the manifest on disk is complete on its own terms.
+# ---------------------------------------------------------------------------
+
+$script:FlagSpecs = $null   # ordered: key -> 'status' | 'number' | 'text'
+
+function Get-FlagSpecs {
+    param($ExistingManifest)
+
+    $specs = [ordered]@{}
+    foreach ($key in $FlagKeys) { $specs[$key] = 'status' }
+    if ($null -eq $ExistingManifest) { return $specs }
+
+    $flags = Get-PropertyValue $ExistingManifest 'flags'
+    if ($null -eq $flags) { return $specs }
+
+    $extra = New-Object System.Collections.ArrayList
+    foreach ($flag in @($flags)) {
+        if ($null -eq $flag) { continue }
+        $key = [string](Get-PropertyValue $flag 'key')
+        if ([string]::IsNullOrWhiteSpace($key)) { continue }
+
+        $type = [string](Get-PropertyValue $flag 'type')
+        if ($type -ne 'number' -and $type -ne 'text') { $type = 'status' }
+
+        if (-not $specs.Contains($key)) { [void]$extra.Add($key) }
+        $specs[$key] = $type
+    }
+
+    if ($extra.Count -gt 0) {
+        Write-Note ('  ' + $extra.Count + ' custom column(s) from the app carried forward: ' +
+                    (($extra | Select-Object -First 6) -join ', ') +
+                    $(if ($extra.Count -gt 6) { ', ...' } else { '' }))
+    }
+
+    return $specs
+}
+
 function New-StatusFlagSet {
+    $specs = $script:FlagSpecs
+    if ($null -eq $specs) {
+        $specs = [ordered]@{}
+        foreach ($key in $FlagKeys) { $specs[$key] = 'status' }
+    }
+
     $flags = [ordered]@{}
-    foreach ($key in $FlagKeys) { $flags[$key] = $null }
+    foreach ($key in $specs.Keys) {
+        if ($specs[$key] -eq 'text') { $flags[$key] = '' } else { $flags[$key] = $null }
+    }
     return $flags
 }
 
@@ -318,10 +519,80 @@ if (-not (Test-Path -LiteralPath $root -PathType Container)) {
 
 Write-Plain ('Folder: ' + $root)
 
+if ($Log) {
+    $logName = 'intake-log-' + (Get-Date).ToString('yyyyMMdd-HHmmss') + '.txt'
+    $logPath = Join-Path $root $logName
+    if ($WhatIfPreference) {
+        # A log file is still a file, so a dry run must not create one.
+        Write-Note ('  [dry]  would log this run to ' + $logName)
+    }
+    else {
+        try {
+            # -LiteralPath only exists on newer hosts; -Path keeps PS 3.0 happy.
+            Start-Transcript -Path $logPath -Confirm:$false | Out-Null
+            $script:TranscriptRunning = $true
+            Write-Note ('  Logging this run to ' + $logName)
+        }
+        catch {
+            Write-Flag ('  [warn] Could not start a transcript (' + $_.Exception.Message +
+                        '); continuing without a log.')
+        }
+    }
+}
+
 $manifestPath  = Join-Path $root 'manifest.json'
 $scriptFile    = $MyInvocation.MyCommand.Path
 $today         = (Get-Date).ToString('yyyy-MM-dd')
 $generatedAt   = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')
+
+# ---------------------------------------------------------------------------
+# State overrides: explicit -StateMap first, otherwise the conventional file
+# in the assignment folder. A map the user asked for by name and that cannot be
+# read is fatal - carrying on would silently ignore the fix they wanted.
+# ---------------------------------------------------------------------------
+
+$stateOverrides   = New-NameMap
+$overrideSource   = ''
+$overrideUsedKeys = New-Object System.Collections.ArrayList
+
+if (-not [string]::IsNullOrWhiteSpace($StateMap)) {
+    try {
+        $overrideSource = (Resolve-Path -LiteralPath $StateMap -ErrorAction Stop).ProviderPath
+    }
+    catch {
+        Write-Fail ('ERROR: -StateMap file not found: ' + $StateMap)
+        Stop-IntakeTranscript
+        exit 1
+    }
+
+    $loaded = Import-StateOverrides $overrideSource
+    if ($null -eq $loaded) {
+        Write-Fail ('ERROR: -StateMap file could not be used: ' + $overrideSource)
+        Stop-IntakeTranscript
+        exit 1
+    }
+    $stateOverrides = $loaded
+}
+else {
+    $defaultMap = Join-Path $root 'state-overrides.json'
+    if (Test-Path -LiteralPath $defaultMap -PathType Leaf) {
+        $overrideSource = $defaultMap
+        $loaded = Import-StateOverrides $defaultMap
+        if ($null -eq $loaded) {
+            # Nobody asked for this file by name, so a broken one is a warning.
+            Write-Flag '  [warn] state-overrides.json was ignored; detection is on its own.'
+            $overrideSource = ''
+        }
+        else {
+            $stateOverrides = $loaded
+        }
+    }
+}
+
+if ($stateOverrides.Count -gt 0) {
+    Write-Note ('  ' + $stateOverrides.Count + ' state override(s) loaded from ' +
+                (Split-Path -Leaf $overrideSource) + '.')
+}
 
 # ---------------------------------------------------------------------------
 # Validation
@@ -333,14 +604,7 @@ $topFiles = @(Get-ChildItem -LiteralPath $root -File | Where-Object {
     -not ($scriptFile -and $_.FullName -eq $scriptFile)
 })
 
-$badFiles = @($topFiles | Where-Object { $AllowedExtensions -notcontains $_.Extension.ToLowerInvariant() })
-
-if ($badFiles.Count -gt 0) {
-    Write-Fail ('ERROR: ' + $badFiles.Count + ' file(s) at the top level are not PDFs:')
-    foreach ($file in $badFiles) { Write-Fail ('  - ' + $file.Name) }
-    Write-Fail 'Remove or move these files out of the assignment folder, then re-run.'
-    exit 1
-}
+$unknownFiles = @($topFiles | Where-Object { $AllowedExtensions -notcontains $_.Extension.ToLowerInvariant() })
 
 $pdfFiles = @($topFiles | Where-Object { $_.Extension.ToLowerInvariant() -eq '.pdf' })
 
@@ -357,7 +621,37 @@ if ($existingReturnDirs.Count -gt 0) {
 
 if ($pdfFiles.Count -eq 0 -and $existingReturnDirs.Count -eq 0) {
     Write-Fail 'ERROR: no PDFs and no existing return folders found - nothing to do.'
+    Stop-IntakeTranscript
     exit 1
+}
+
+# Unrecognised top-level files are the main "you are in the wrong folder" tell,
+# but they are not a reason to refuse the work - the returns are still there and
+# nothing is ever done to these files. So: show them and let the operator judge.
+if ($unknownFiles.Count -gt 0) {
+    Write-Flag ('  [flag] ' + $unknownFiles.Count +
+                ' file(s) at the top level are neither PDFs nor known companion files:')
+    foreach ($file in $unknownFiles) { Write-Flag ('         - ' + $file.Name) }
+    Write-Flag '         They will be left exactly where they are.'
+    # Said out loud on every path, because a -Force run has nobody reading a prompt.
+    Write-Flag ('         If you did not expect them, you are probably in the wrong folder: ' + $root)
+    Write-Flag ('         Found ' + $pdfFiles.Count + ' PDF(s), ' + $existingReturnDirs.Count +
+                ' existing return folder(s) and ' + $unknownFiles.Count + ' unrecognised file(s).')
+
+    if ($Force) {
+        Write-Note '  -Force: continuing without asking.'
+    }
+    elseif ($WhatIfPreference) {
+        Write-Note '  [dry]  continuing without asking (nothing can be changed anyway).'
+    }
+    else {
+        $answer = Read-Host 'Continue with this folder? (Y/N)'
+        if ($answer -notmatch '^[Yy]') {
+            Write-Fail 'Aborted by user. Nothing was changed.'
+            Stop-IntakeTranscript
+            exit 2
+        }
+    }
 }
 
 # Build the work list: one entry per return, from loose PDFs + existing folders.
@@ -368,6 +662,7 @@ foreach ($pdf in $pdfFiles) {
     $id = $pdf.BaseName.TrimEnd(' ', '.')
     if ([string]::IsNullOrWhiteSpace($id)) {
         Write-Fail ('ERROR: cannot derive a folder name from "' + $pdf.Name + '".')
+        Stop-IntakeTranscript
         exit 1
     }
     if ($id -ne $pdf.BaseName) {
@@ -375,6 +670,7 @@ foreach ($pdf in $pdfFiles) {
     }
     if ($seenIds -contains $id) {
         Write-Fail ('ERROR: two PDFs map to the same folder name "' + $id + '". Rename one and re-run.')
+        Stop-IntakeTranscript
         exit 1
     }
     [void]$seenIds.Add($id)
@@ -400,22 +696,43 @@ foreach ($dir in $existingReturnDirs) {
 }
 
 # Detect states before touching the filesystem.
-$flaggedItems = New-Object System.Collections.ArrayList
+# ($stateHits, not $matches: $Matches is PowerShell's automatic variable and the
+#  next -match anywhere in the script would silently overwrite it.)
+$flaggedItems  = New-Object System.Collections.ArrayList
+$overrideCount = 0
 
 foreach ($item in $workItems) {
-    $matches = @(Get-StateCodeMatches $item['Id'])
-    if ($matches.Count -eq 1) {
-        $item['StateCode'] = $matches[0]
-        $item['StateName'] = $States[$matches[0]]
+    # Override first, and it is not second-guessed: the id (filename minus .pdf)
+    # is the normal key, the exact filename is the fallback for odd names.
+    $overrideCode = $null
+    if ($stateOverrides.Count -gt 0) {
+        if     ($stateOverrides.ContainsKey($item['Id']))       { $overrideCode = $stateOverrides[$item['Id']]; $key = $item['Id'] }
+        elseif ($stateOverrides.ContainsKey($item['FileName'])) { $overrideCode = $stateOverrides[$item['FileName']]; $key = $item['FileName'] }
+    }
+
+    if ($null -ne $overrideCode) {
+        $item['StateCode']  = $overrideCode
+        $item['StateName']  = $States[$overrideCode]
+        $item['FlagReason'] = $null
+        if ($overrideUsedKeys -notcontains $key) { [void]$overrideUsedKeys.Add($key) }
+        $overrideCount++
+        Write-Note ('  [ovr]  ' + $item['FileName'] + ' -> ' + $overrideCode + ' (override)')
+        continue
+    }
+
+    $stateHits = @(Get-StateCodeMatches $item['Id'])
+    if ($stateHits.Count -eq 1) {
+        $item['StateCode'] = $stateHits[0]
+        $item['StateName'] = $States[$stateHits[0]]
     }
     else {
         $item['StateCode'] = $null
         $item['StateName'] = $null
-        if ($matches.Count -eq 0) {
+        if ($stateHits.Count -eq 0) {
             $item['FlagReason'] = 'no state code detected'
         }
         else {
-            $item['FlagReason'] = 'multiple state codes detected: ' + ($matches -join ', ')
+            $item['FlagReason'] = 'multiple state codes detected: ' + ($stateHits -join ', ')
         }
         [void]$flaggedItems.Add($item)
     }
@@ -425,18 +742,36 @@ foreach ($item in $flaggedItems) {
     Write-Flag ('  [flag] ' + $item['FileName'] + ' -> ' + $item['FlagReason'])
 }
 
+# An override key that matched nothing is usually a typo in the map, and a typo
+# there looks exactly like "the override did not work".
+if ($stateOverrides.Count -gt 0) {
+    foreach ($key in @($stateOverrides.Keys)) {
+        if ($overrideUsedKeys -notcontains $key) {
+            Write-Flag ('  [warn] override "' + $key + '" matched no return in this folder.')
+        }
+    }
+}
+
 $cleanCount = $workItems.Count - $flaggedItems.Count
 Write-Plain ''
 Write-Plain ('Summary: ' + $workItems.Count + ' return(s) total | ' +
-             $cleanCount + ' clean | ' + $flaggedItems.Count + ' flagged')
+             $cleanCount + ' clean | ' + $flaggedItems.Count + ' flagged | ' +
+             $overrideCount + ' override(s) applied')
 
 if ($flaggedItems.Count -gt 0) {
     Write-Flag 'Flagged returns still get a folder and a manifest entry, with no state assigned.'
-    Write-Flag 'You can assign their state by hand in crm.html.'
-    if (-not $Force) {
+    Write-Flag 'You can assign their state by hand in index.html, or in the override file.'
+    if ($Force) {
+        Write-Note '  -Force: continuing without asking.'
+    }
+    elseif ($WhatIfPreference) {
+        Write-Note '  [dry]  continuing without asking (nothing can be changed anyway).'
+    }
+    else {
         $answer = Read-Host 'Proceed anyway? (Y/N)'
         if ($answer -notmatch '^[Yy]') {
             Write-Fail 'Aborted by user. Nothing was changed.'
+            Stop-IntakeTranscript
             exit 2
         }
     }
@@ -450,6 +785,7 @@ Write-Header 'Processing'
 
 $createdCount = 0
 $skippedCount = 0
+$wouldCount   = 0
 
 foreach ($item in $workItems) {
     $targetDir = Join-Path $root $item['Id']
@@ -467,7 +803,18 @@ foreach ($item in $workItems) {
     }
 
     if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) {
-        New-Item -ItemType Directory -Path $targetDir | Out-Null
+        if ($PSCmdlet.ShouldProcess($targetDir, 'Create return folder')) {
+            # -Confirm:$false - permission was just granted above; asking twice
+            # under -Confirm would only train people to hit Y blindly.
+            New-Item -ItemType Directory -Path $targetDir -Confirm:$false | Out-Null
+        }
+        elseif (-not $WhatIfPreference) {
+            # Declined at a -Confirm prompt: there is nowhere to move the PDF to,
+            # so stop here rather than let Move-Item fail confusingly.
+            Write-Note ('  [skip] ' + $item['Id'] + ' -> folder not created (declined at the prompt)')
+            $skippedCount++
+            continue
+        }
     }
 
     $destination = Join-Path $targetDir $item['FileName']
@@ -479,8 +826,22 @@ foreach ($item in $workItems) {
         continue
     }
 
+    if (-not $PSCmdlet.ShouldProcess($destination, 'Move PDF into its return folder')) {
+        # -WhatIf, or declined at a -Confirm prompt. The folder above was not
+        # created either, so the folder stays exactly as it was.
+        if ($WhatIfPreference) {
+            Write-Note ('  [dry]  ' + $item['Id'] + ' -> would move ' + $item['FileName'])
+            $wouldCount++
+        }
+        else {
+            Write-Note ('  [skip] ' + $item['Id'] + ' -> declined at the prompt')
+            $skippedCount++
+        }
+        continue
+    }
+
     try {
-        Move-Item -LiteralPath $item['Source'].FullName -Destination $destination
+        Move-Item -LiteralPath $item['Source'].FullName -Destination $destination -Confirm:$false
         Write-Ok ('  [ok]   ' + $item['Id'] + ' -> moved ' + $item['FileName'])
         $createdCount++
     }
@@ -490,7 +851,7 @@ foreach ($item in $workItems) {
     }
 }
 
-if ($createdCount -eq 0 -and $skippedCount -gt 0) {
+if ($createdCount -eq 0 -and $wouldCount -eq 0 -and $skippedCount -gt 0) {
     Write-Note '  Nothing to move - all returns were already filed.'
 }
 
@@ -502,6 +863,10 @@ Write-Header 'Manifest'
 
 $existingManifest = Read-ExistingManifest $manifestPath
 $existingById     = @{}
+
+# Learn the full column set (including any the app added, and what each holds)
+# before building a single return, so every new entry is complete.
+$script:FlagSpecs = Get-FlagSpecs $existingManifest
 
 if ($null -ne $existingManifest) {
     foreach ($old in @(Get-PropertyValue $existingManifest 'returns')) {
@@ -568,7 +933,23 @@ foreach ($orphanId in $orphans) {
     Write-Flag ('  [warn] "' + $orphanId + '" is in manifest.json but has no folder here; kept its tracked status.')
 }
 
+# The CRM stamps the same number on anything it exports, so writing it here is
+# what lets a script-written manifest survive an import/export round trip
+# unchanged. Never write a number lower than one we have already seen, or a
+# newer app's file would be quietly downgraded.
+$schemaVersion = 1
+if ($null -ne $existingManifest) {
+    $oldSchema = 0
+    if ([int]::TryParse([string](Get-PropertyValue $existingManifest 'schema_version'), [ref]$oldSchema)) {
+        if ($oldSchema -gt $schemaVersion) {
+            $schemaVersion = $oldSchema
+            Write-Note ('  Keeping the existing manifest schema_version of ' + $schemaVersion + '.')
+        }
+    }
+}
+
 $manifest = [ordered]@{
+    schema_version    = $schemaVersion
     generated_at      = $generatedAt
     assignment_folder = $root
     returns           = $returns.ToArray()
@@ -584,19 +965,42 @@ if ($null -ne $existingManifest) {
 
 if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
     $backupName = 'manifest.backup-' + (Get-Date).ToString('yyyyMMdd-HHmmss') + '.json'
-    Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $root $backupName)
-    Write-Note ('  Backed up previous manifest.json -> ' + $backupName)
+    $backupPath = Join-Path $root $backupName
+    if ($PSCmdlet.ShouldProcess($backupPath, 'Back up the previous manifest.json')) {
+        Copy-Item -LiteralPath $manifestPath -Destination $backupPath -Confirm:$false
+        Write-Note ('  Backed up previous manifest.json -> ' + $backupName)
+    }
 }
 
+# Render before asking permission: a dry run should prove the manifest can
+# actually be built, not just claim it would be.
 try {
-    $json     = ConvertTo-JsonManual $manifest 0
-    $encoding = New-Object System.Text.UTF8Encoding($false)   # no BOM: keeps JSON.parse happy
-    [System.IO.File]::WriteAllText($manifestPath, $json, $encoding)
-    Write-Ok ('  Wrote ' + $manifestPath)
+    $json = ConvertTo-JsonManual $manifest 0
 }
 catch {
-    Write-Fail ('ERROR: could not write manifest.json: ' + $_.Exception.Message)
+    Write-Fail ('ERROR: could not build the manifest JSON: ' + $_.Exception.Message)
+    Stop-IntakeTranscript
     exit 1
+}
+
+$manifestWritten = $false
+
+if ($PSCmdlet.ShouldProcess($manifestPath, 'Write manifest.json')) {
+    try {
+        $encoding = New-Object System.Text.UTF8Encoding($false)   # no BOM: keeps JSON.parse happy
+        [System.IO.File]::WriteAllText($manifestPath, $json, $encoding)
+        Write-Ok ('  Wrote ' + $manifestPath)
+        $manifestWritten = $true
+    }
+    catch {
+        Write-Fail ('ERROR: could not write manifest.json: ' + $_.Exception.Message)
+        Stop-IntakeTranscript
+        exit 1
+    }
+}
+else {
+    Write-Note ('  [dry]  manifest.json NOT written; ' + $json.Length +
+                ' characters were rendered without error.')
 }
 
 # ---------------------------------------------------------------------------
@@ -604,9 +1008,20 @@ catch {
 # ---------------------------------------------------------------------------
 
 Write-Host ''
-Write-Ok ('Processed ' + $returns.Count + ' returns, ' + $flagged.Count +
-          ' flagged, manifest.json written.')
-Write-Plain 'Next: open crm.html in a browser and import manifest.json.'
+if ($manifestWritten) {
+    Write-Ok ('Processed ' + $returns.Count + ' returns, ' + $flagged.Count +
+              ' flagged, manifest.json written.')
+    Write-Plain 'Next: open index.html in a browser and import manifest.json.'
+}
+elseif ($WhatIfPreference) {
+    Write-Note ('Dry run (-WhatIf): nothing was changed. ' + $wouldCount + ' PDF(s) would be filed, ' +
+                $returns.Count + ' return(s) would be in manifest.json, ' + $flagged.Count + ' flagged.')
+}
+else {
+    Write-Flag ('manifest.json was NOT written (declined at the prompt). ' + $createdCount +
+                ' PDF(s) were filed, so the folder and the manifest are now out of step.')
+}
 Write-Host ''
 
+Stop-IntakeTranscript
 exit 0
