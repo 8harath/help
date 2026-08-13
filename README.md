@@ -1,10 +1,11 @@
 # Returns Intake & Tracking (MVP)
 
-Two pieces, no dependencies:
+Two stages, no dependencies:
 
 | File | What it is | Where it runs |
 |---|---|---|
 | `intake.ps1` | Stage 1 — validates a folder of return PDFs, files each into its own folder, writes `manifest.json` | Windows PowerShell 5.1 (no modules, no admin) |
+| `run-intake.cmd` | Safe Windows launcher for `intake.ps1`; prevents partial/selected-line execution | Windows Command Prompt or PowerShell |
 | `index.html` | Stage 2 — the whole tracker in one file | Any modern browser, opened directly (`file://`) |
 | `sample-manifest.json` | 13-return test fixture (12 clean + 1 flagged) so you can try the app without running the script | — |
 
@@ -27,25 +28,31 @@ suite and `intake.ps1` both point at `index.html`.
 
 ### Running it
 
-Copy `intake.ps1` somewhere handy, then from the assignment folder:
+Keep `run-intake.cmd` and `intake.ps1` together. The recommended command is:
 
-```powershell
-cd C:\Work\Assignments\2026-08-11
-C:\Tools\intake.ps1
+```bat
+C:\Tools\run-intake.cmd -Path "C:\Work\Assignments\2026-08-11"
 ```
 
-It always operates on the **current directory**. To point it elsewhere, or to
-change how it behaves:
+The launcher checks for PowerShell 3.0 or newer, bypasses the execution policy
+for this invocation only, and runs `intake.ps1` as one complete script. **Do not
+paste the script into a PowerShell window or use Run Selection.** Doing that
+causes misleading `else is not recognized` and null `$PSCmdlet.ShouldProcess`
+errors because the lines no longer share one script context.
+
+When `-Path` is omitted, intake operates on the current directory. Other options
+can be passed through the launcher:
 
 ```powershell
-C:\Tools\intake.ps1 -Path 'C:\Work\Assignments\2026-08-11'
-C:\Tools\intake.ps1 -WhatIf     # complete dry run: reports everything, touches nothing
-C:\Tools\intake.ps1 -Force      # answer Y to the prompts
-C:\Tools\intake.ps1 -StateMap 'C:\Work\state-overrides.json'
-C:\Tools\intake.ps1 -Log        # transcript to intake-log-<timestamp>.txt
+C:\Tools\run-intake.cmd -Path 'C:\Work\Assignments\2026-08-11'
+C:\Tools\run-intake.cmd -WhatIf     # complete dry run: reports everything, touches nothing
+C:\Tools\run-intake.cmd -Force      # answer Y to the prompts
+C:\Tools\run-intake.cmd -StateMap 'C:\Work\state-overrides.json'
+C:\Tools\run-intake.cmd -Log        # transcript to intake-log-<timestamp>.txt
 ```
 
-If PowerShell blocks the script, unblock it once (no admin needed):
+Direct `.ps1` execution remains supported. If PowerShell blocks it, either use
+the launcher or unblock it once (no admin needed):
 
 ```powershell
 Unblock-File C:\Tools\intake.ps1

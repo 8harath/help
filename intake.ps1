@@ -5,7 +5,10 @@
 
 .DESCRIPTION
     Run this from inside a freshly created assignment folder that contains the
-    day's PDFs. It will:
+    day's PDFs. Run the .ps1 file as a whole; do not paste it into the console
+    or use "Run Selection", because that separates else blocks from their if
+    statements and removes the advanced-script context required by ShouldProcess.
+    It will:
       1. Validate the folder (PDFs plus known companion files at top level,
          recognizable state codes).
       2. Print a validation summary and ask for confirmation if anything is flagged.
@@ -47,6 +50,11 @@
 .EXAMPLE
     cd C:\Work\2026-08-11
     .\intake.ps1
+
+.EXAMPLE
+    C:\Tools\run-intake.cmd -Path 'C:\Work\2026-08-11'
+    Windows launcher that checks the PowerShell version and invokes this entire
+    script with the appropriate execution-policy bypass.
 
 .EXAMPLE
     .\intake.ps1 -Path 'C:\Work\2026-08-11' -Force
@@ -187,8 +195,7 @@ function ConvertTo-JsonString {
             "`r"    { [void]$sb.Append('\r');   break }
             "`t"    { [void]$sb.Append('\t');   break }
             default {
-                if ($code -lt 32) { [void]$sb.Append(('\u{0:x4}' -f $code)) }
-                else              { [void]$sb.Append($ch) }
+                if ($code -lt 32) { [void]$sb.Append(('\u{0:x4}' -f $code)) } else { [void]$sb.Append($ch) }
             }
         }
     }
@@ -309,8 +316,7 @@ function New-NameMap {
     try {
         return (New-Object -TypeName System.Collections.Hashtable `
                            -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase))
-    }
-    catch {
+    } catch {
         return @{}
     }
 }
@@ -322,16 +328,14 @@ function Import-StateOverrides {
 
     try {
         $raw = Get-Content -LiteralPath $MapPath -Raw -Encoding UTF8
-    }
-    catch {
+    } catch {
         Write-Flag ('  [warn] Could not read ' + $MapPath + ' (' + $_.Exception.Message + ').')
         return $null
     }
 
     if ([string]::IsNullOrWhiteSpace($raw)) { return $map }
 
-    try   { $parsed = $raw | ConvertFrom-Json }
-    catch {
+    try { $parsed = $raw | ConvertFrom-Json } catch {
         Write-Flag ('  [warn] ' + $MapPath + ' is not valid JSON (' + $_.Exception.Message + ').')
         return $null
     }
@@ -385,8 +389,7 @@ function Read-ExistingManifest {
         $raw = Get-Content -LiteralPath $ManifestPath -Raw -Encoding UTF8
         if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
         return ($raw | ConvertFrom-Json)
-    }
-    catch {
+    } catch {
         Write-Flag ('  [warn] Existing manifest.json could not be parsed (' + $_.Exception.Message + ').')
         Write-Flag '         It will be backed up and rebuilt from scratch; status flags in it are NOT carried over.'
         return $null
@@ -507,8 +510,7 @@ Write-Host '=== Returns Intake - Stage 1 ===' -ForegroundColor White
 
 try {
     $root = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
-}
-catch {
+} catch {
     Write-Fail ('ERROR: folder not found: ' + $Path)
     exit 1
 }
@@ -526,15 +528,13 @@ if ($Log) {
     if ($WhatIfPreference) {
         # A log file is still a file, so a dry run must not create one.
         Write-Note ('  [dry]  would log this run to ' + $logName)
-    }
-    else {
+    } else {
         try {
             # -LiteralPath only exists on newer hosts; -Path keeps PS 3.0 happy.
             Start-Transcript -Path $logPath -Confirm:$false | Out-Null
             $script:TranscriptRunning = $true
             Write-Note ('  Logging this run to ' + $logName)
-        }
-        catch {
+        } catch {
             Write-Flag ('  [warn] Could not start a transcript (' + $_.Exception.Message +
                         '); continuing without a log.')
         }
@@ -559,8 +559,7 @@ $overrideUsedKeys = New-Object System.Collections.ArrayList
 if (-not [string]::IsNullOrWhiteSpace($StateMap)) {
     try {
         $overrideSource = (Resolve-Path -LiteralPath $StateMap -ErrorAction Stop).ProviderPath
-    }
-    catch {
+    } catch {
         Write-Fail ('ERROR: -StateMap file not found: ' + $StateMap)
         Stop-IntakeTranscript
         exit 1
@@ -573,8 +572,7 @@ if (-not [string]::IsNullOrWhiteSpace($StateMap)) {
         exit 1
     }
     $stateOverrides = $loaded
-}
-else {
+} else {
     $defaultMap = Join-Path $root 'state-overrides.json'
     if (Test-Path -LiteralPath $defaultMap -PathType Leaf) {
         $overrideSource = $defaultMap
@@ -583,8 +581,7 @@ else {
             # Nobody asked for this file by name, so a broken one is a warning.
             Write-Flag '  [warn] state-overrides.json was ignored; detection is on its own.'
             $overrideSource = ''
-        }
-        else {
+        } else {
             $stateOverrides = $loaded
         }
     }
@@ -641,11 +638,9 @@ if ($unknownFiles.Count -gt 0) {
 
     if ($Force) {
         Write-Note '  -Force: continuing without asking.'
-    }
-    elseif ($WhatIfPreference) {
+    } elseif ($WhatIfPreference) {
         Write-Note '  [dry]  continuing without asking (nothing can be changed anyway).'
-    }
-    else {
+    } else {
         $answer = Read-Host 'Continue with this folder? (Y/N)'
         if ($answer -notmatch '^[Yy]') {
             Write-Fail 'Aborted by user. Nothing was changed.'
@@ -707,8 +702,13 @@ foreach ($item in $workItems) {
     # is the normal key, the exact filename is the fallback for odd names.
     $overrideCode = $null
     if ($stateOverrides.Count -gt 0) {
-        if     ($stateOverrides.ContainsKey($item['Id']))       { $overrideCode = $stateOverrides[$item['Id']]; $key = $item['Id'] }
-        elseif ($stateOverrides.ContainsKey($item['FileName'])) { $overrideCode = $stateOverrides[$item['FileName']]; $key = $item['FileName'] }
+        if ($stateOverrides.ContainsKey($item['Id'])) {
+            $overrideCode = $stateOverrides[$item['Id']]
+            $key = $item['Id']
+        } elseif ($stateOverrides.ContainsKey($item['FileName'])) {
+            $overrideCode = $stateOverrides[$item['FileName']]
+            $key = $item['FileName']
+        }
     }
 
     if ($null -ne $overrideCode) {
@@ -725,14 +725,12 @@ foreach ($item in $workItems) {
     if ($stateHits.Count -eq 1) {
         $item['StateCode'] = $stateHits[0]
         $item['StateName'] = $States[$stateHits[0]]
-    }
-    else {
+    } else {
         $item['StateCode'] = $null
         $item['StateName'] = $null
         if ($stateHits.Count -eq 0) {
             $item['FlagReason'] = 'no state code detected'
-        }
-        else {
+        } else {
             $item['FlagReason'] = 'multiple state codes detected: ' + ($stateHits -join ', ')
         }
         [void]$flaggedItems.Add($item)
@@ -764,11 +762,9 @@ if ($flaggedItems.Count -gt 0) {
     Write-Flag 'You can assign their state by hand in index.html, or in the override file.'
     if ($Force) {
         Write-Note '  -Force: continuing without asking.'
-    }
-    elseif ($WhatIfPreference) {
+    } elseif ($WhatIfPreference) {
         Write-Note '  [dry]  continuing without asking (nothing can be changed anyway).'
-    }
-    else {
+    } else {
         $answer = Read-Host 'Proceed anyway? (Y/N)'
         if ($answer -notmatch '^[Yy]') {
             Write-Fail 'Aborted by user. Nothing was changed.'
@@ -807,9 +803,14 @@ foreach ($item in $workItems) {
         if ($PSCmdlet.ShouldProcess($targetDir, 'Create return folder')) {
             # -Confirm:$false - permission was just granted above; asking twice
             # under -Confirm would only train people to hit Y blindly.
-            New-Item -ItemType Directory -Path $targetDir -Confirm:$false | Out-Null
-        }
-        elseif (-not $WhatIfPreference) {
+            try {
+                New-Item -ItemType Directory -Path $targetDir -Confirm:$false | Out-Null
+            } catch {
+                Write-Fail ('  [fail] ' + $item['Id'] + ' -> could not create folder: ' + $_.Exception.Message)
+                $skippedCount++
+                continue
+            }
+        } elseif (-not $WhatIfPreference) {
             # Declined at a -Confirm prompt: there is nowhere to move the PDF to,
             # so stop here rather than let Move-Item fail confusingly.
             Write-Note ('  [skip] ' + $item['Id'] + ' -> folder not created (declined at the prompt)')
@@ -833,8 +834,7 @@ foreach ($item in $workItems) {
         if ($WhatIfPreference) {
             Write-Note ('  [dry]  ' + $item['Id'] + ' -> would move ' + $item['FileName'])
             $wouldCount++
-        }
-        else {
+        } else {
             Write-Note ('  [skip] ' + $item['Id'] + ' -> declined at the prompt')
             $skippedCount++
         }
@@ -845,8 +845,7 @@ foreach ($item in $workItems) {
         Move-Item -LiteralPath $item['Source'].FullName -Destination $destination -Confirm:$false
         Write-Ok ('  [ok]   ' + $item['Id'] + ' -> moved ' + $item['FileName'])
         $createdCount++
-    }
-    catch {
+    } catch {
         Write-Fail ('  [fail] ' + $item['Id'] + ' -> could not move file: ' + $_.Exception.Message)
         $skippedCount++
     }
@@ -977,8 +976,7 @@ if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
 # actually be built, not just claim it would be.
 try {
     $json = ConvertTo-JsonManual $manifest 0
-}
-catch {
+} catch {
     Write-Fail ('ERROR: could not build the manifest JSON: ' + $_.Exception.Message)
     Stop-IntakeTranscript
     exit 1
@@ -992,14 +990,12 @@ if ($PSCmdlet.ShouldProcess($manifestPath, 'Write manifest.json')) {
         [System.IO.File]::WriteAllText($manifestPath, $json, $encoding)
         Write-Ok ('  Wrote ' + $manifestPath)
         $manifestWritten = $true
-    }
-    catch {
+    } catch {
         Write-Fail ('ERROR: could not write manifest.json: ' + $_.Exception.Message)
         Stop-IntakeTranscript
         exit 1
     }
-}
-else {
+} else {
     Write-Note ('  [dry]  manifest.json NOT written; ' + $json.Length +
                 ' characters were rendered without error.')
 }
@@ -1013,12 +1009,10 @@ if ($manifestWritten) {
     Write-Ok ('Processed ' + $returns.Count + ' returns, ' + $flagged.Count +
               ' flagged, manifest.json written.')
     Write-Plain 'Next: open index.html in a browser and import manifest.json.'
-}
-elseif ($WhatIfPreference) {
+} elseif ($WhatIfPreference) {
     Write-Note ('Dry run (-WhatIf): nothing was changed. ' + $wouldCount + ' PDF(s) would be filed, ' +
                 $returns.Count + ' return(s) would be in manifest.json, ' + $flagged.Count + ' flagged.')
-}
-else {
+} else {
     Write-Flag ('manifest.json was NOT written (declined at the prompt). ' + $createdCount +
                 ' PDF(s) were filed, so the folder and the manifest are now out of step.')
 }
