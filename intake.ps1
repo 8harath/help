@@ -261,7 +261,8 @@ function ConvertTo-JsonManual {
 #
 # Split the name on spaces / hyphens / underscores, then look at each maximal
 # run of letters inside those tokens. A run counts as a state code only if the
-# whole run is exactly two letters, so "MD510" -> MD but "MASTER" -> nothing.
+# whole run is exactly two letters, so "MD510" -> MD, the state segment in
+# "CI6AIF_12.31.25_NJ-CBT_Return_E-file" -> NJ, and "MASTER" -> nothing.
 # ---------------------------------------------------------------------------
 
 function Get-StateCodeMatches {

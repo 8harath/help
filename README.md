@@ -522,6 +522,12 @@ still one file, no dependencies, no build step.
 
 ### `intake.ps1`
 
+The no-dependency filename regression can be run on the target Windows machine:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\test\intake-state-detection.ps1
+```
+
 **Executed** against throwaway folders using **PowerShell 7.7.0-preview.3 on
 macOS**. That is not the target runtime — **Windows PowerShell 5.1 on the work
 machine is still untested**, so anything host-specific (`Start-Transcript`
@@ -533,6 +539,7 @@ actually run.
 |---|---|
 | Parses clean under the PowerShell parser | Verified — zero parse errors |
 | Well-named PDFs + unreadable ones → a folder each, the bad ones flagged, valid manifest | Verified by running it |
+| `CI6AIF_12.31.25_<STATE>_Return_E-File.pdf` names, including `NJ-CBT` and lowercase `E-file` | Covered end to end for MA, MN, MT, NJ, NY, OR, PA and SC by `test/intake-state-detection.ps1` |
 | A name with no state code, and a name with two, are both flagged and never guessed | **Fixed earlier, re-verified.** `MASTER_FILE` → `no state code detected`, `NY-NJ-both` → `multiple state codes detected: NY, NJ` |
 | Running `intake.ps1` twice does not duplicate folders or crash | Verified — the second run reports `already processed`, backs up the manifest, and carries forward status flags, remarks, a hand-assigned state and unknown keys |
 | `-WhatIf` changes nothing | Verified — no folders, no manifest, no log file; the manifest is still rendered, so a dry run proves it builds |
