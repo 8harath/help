@@ -1,19 +1,22 @@
-# Returns Intake & Tracking (MVP)
+# Returns Intake & Tracking
 
-Two stages, no dependencies:
+Three stages, no external dependencies:
 
 | File | What it is | Where it runs |
 |---|---|---|
 | `intake.ps1` | Stage 1 — validates a folder of return PDFs, files each into its own folder, writes `manifest.json` | Windows PowerShell 5.1 (no modules, no admin) |
 | `run-intake.cmd` | Safe Windows launcher for `intake.ps1`; prevents partial/selected-line execution | Windows Command Prompt or PowerShell |
 | `index.html` | Stage 2 — the whole tracker in one file | Any modern browser, opened directly (`file://`) |
+| `batch-status.ps1` | Stage 3 — classifies numeric batch ZIPs from their internal XML extension and files them into return folders | Windows PowerShell 5.1 (no modules, no admin) |
+| `run-batch-status.cmd` | Safe Windows launcher for `batch-status.ps1` | Windows Command Prompt or PowerShell |
 | `sample-manifest.json` | 13-return test fixture (12 clean + 1 flagged) so you can try the app without running the script | — |
 
 **Double-click `index.html` and it works.** No server, no CDN, no build step, no
 install — one file of hand-written HTML, CSS and JS. The `.xlsx` export is written
 byte by byte by the page itself rather than by a library.
 
-Stage 3 (splitting each return folder into Batch Status / GS XMLs / Recon Outputs / TFR) is **not** in this MVP.
+Stage 3 currently handles Batch Status ZIP + XML filing. GS XMLs, Recon Outputs,
+and TFR filing are not automated yet.
 
 ## Current state
 
@@ -487,6 +490,56 @@ putting the column back without its data wouldn't be an undo.
   state into `localStorage` and restores it next time — don't rely on it; export
   the JSON.
 
+---
+
+## Stage 3 — `batch-status.ps1`
+
+Put the downloaded numeric ZIPs in a separate batch folder, then run a dry run:
+
+```bat
+C:\Tools\run-batch-status.cmd -Path "C:\Work\Assignments\2026-08-11" -BatchPath "C:\Work\Batch Status" -WhatIf
+```
+
+If the summary is correct, run the same command without `-WhatIf`:
+
+```bat
+C:\Tools\run-batch-status.cmd -Path "C:\Work\Assignments\2026-08-11" -BatchPath "C:\Work\Batch Status"
+```
+
+For each numeric ZIP, the script looks only at file entries with one of these
+exact extension shapes:
+
+- `.xAA`, where `AA` is one of the 50 state codes or DC. For example,
+  `P0376VY5.xal` is classified as Alabama.
+- `.xml`, which is classified as federal.
+
+Extensions containing a digit, including `.x75`, `.x7l`, and `.x8y`, are
+ignored. The script does not open an inner attachments ZIP, and it never
+rewrites the outer archive. A successful Alabama result looks like this:
+
+```text
+RETURN_2026_AL_01\
+  original-return.pdf
+  AL.zip                 (the unchanged bytes of 64099419.zip)
+  P0376VY5.xml           (a copy of P0376VY5.xal from inside it)
+```
+
+The state destination is a unique immediate child folder whose name contains
+that two-letter code. Federal uses a unique folder containing `FED` or
+`Federal`; if its folder has another naming convention, pass its exact child
+folder name:
+
+```bat
+C:\Tools\run-batch-status.cmd -Path "C:\Work\Assignments\2026-08-11" -BatchPath "C:\Work\Batch Status" -FederalFolder "Federal Return"
+```
+
+The script never overwrites. An unreadable ZIP, missing or multiple XML
+classification files, unknown alphabetic `.xAA`, missing or multiple matching
+return folders, nonnumeric outer ZIP name, an existing destination, or two
+archives targeting the same destination is flagged. That source ZIP remains in
+the batch folder. Every real run writes a timestamped
+`batch-status-report-*.csv` there; exit code `2` means to read that report.
+
 ## Acceptance checks
 
 ### The app
@@ -557,6 +610,24 @@ actually run.
 | **A PDF filed on a later run gets the app's columns too** | **Fixed, then verified.** `New-StatusFlagSet` only ever wrote the eight built-in keys, so a return added after the app had made columns arrived with holes in it. It now reads the column set out of the existing manifest and gives each key the empty value its own type wants — `null` for a number, `""` for text |
 | A manifest from *before* typed columns still works | Verified — `flags` entries with no `type` are treated as yes/no/issue by both halves |
 | Numbers and text round-trip through the script unharmed | Verified — `1520.25`, `-300`, `Jane "JQ" Public, CPA`, and a value containing a newline and a tab all came back identical |
+
+### `batch-status.ps1`
+
+The no-dependency end-to-end test can be run on the target Windows machine:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\test\batch-status.ps1
+```
+
+It creates throwaway state and federal archives, verifies digit-bearing
+extensions are ignored, confirms the moved ZIP's SHA-256 hash is unchanged,
+checks the extracted XML content, exercises corrupt/missing/ambiguous/unknown
+classification and destination errors, confirms same-run and existing-file
+collisions cannot pick a winner, and verifies `-WhatIf` changes nothing.
+
+Executed successfully with a temporary PowerShell 7.4.6 runtime on macOS. The
+target runtime, Windows PowerShell 5.1 on the work machine, still needs a smoke
+test before using real assignment files.
 
 ### The two halves together
 
