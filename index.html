@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A private, offline-first tracker for return intake and qualification workflows.">
+<meta name="color-scheme" content="light dark">
 <title>Returns Tracker</title>
 <style>
 /* =====================================================================
@@ -14,6 +16,7 @@
    ===================================================================== */
 
 :root {
+  color-scheme: light;
   --paper:      #f4f3f0;
   --panel:      #ffffff;
   --ink:        #16181a;
@@ -165,10 +168,29 @@ input[type=search] { width: 190px; }
   color: var(--ink-2);
   white-space: nowrap;
 }
+.pill[type="button"] {
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.pill[type="button"]:hover {
+  background: var(--line-2);
+  border-color: var(--line);
+}
+.pill[type="button"].active {
+  border-color: var(--hair);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--focus);
+}
+.pill[type="button"]:disabled { cursor: default; }
 .pill b { font-size: 12.5px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .pill.ok b    { color: var(--yes-ink); }
 .pill.warn b  { color: var(--issue-ink); }
 .pill.zero    { opacity: .5; }
+
+.clear-filters { color: var(--focus); }
+.clear-filters:not(.hidden) { display: inline-flex; align-items: center; gap: 4px; }
 
 /* the little 8-step completion meter */
 .meter { display: flex; gap: 2px; align-items: center; }
@@ -467,6 +489,7 @@ input.remarks::placeholder { color: #c9ccd0; }
 input.remarks:focus { background: #fff; outline: 2px solid var(--focus); outline-offset: -2px; }
 
 .nomatch { padding: 40px; text-align: center; color: var(--ink-3); }
+.nomatch button { display: block; margin: 12px auto 0; }
 
 /* ---------------------------------------------------------- statusbar */
 
@@ -799,6 +822,168 @@ tr.drop-target-below {
 .sheet header .grow { margin-right: auto; }
 .sheet .body { overflow: auto; padding: 4px 14px 16px; }
 .sheet footer { border-top: 1px solid var(--line); padding: 10px 14px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+.manifest-sheet { width: 520px; }
+
+.analytics-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.analytics-kpi {
+  min-width: 0;
+  padding: 9px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+}
+.analytics-kpi strong {
+  display: block;
+  font: 700 18px/1.15 var(--mono);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.analytics-kpi span {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.analytics-kpi.good strong { color: var(--yes-ink); }
+.analytics-kpi.warn strong { color: var(--issue-ink); }
+
+.analytics-card {
+  margin-top: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.analytics-card-title {
+  margin-bottom: 8px;
+  color: var(--ink-2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.analytics-overview {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.analytics-donut {
+  width: 108px;
+  height: 108px;
+  padding: 13px;
+  border-radius: 50%;
+}
+.analytics-donut-hole {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: 0 0 0 4px var(--panel);
+}
+.analytics-donut-hole strong {
+  font: 700 20px/1 var(--mono);
+  color: var(--ink);
+}
+.analytics-donut-hole span {
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.analytics-dist { display: grid; gap: 6px; }
+.analytics-dist-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 28px;
+  gap: 7px;
+  align-items: center;
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+.analytics-dist-track,
+.state-chart-track {
+  display: flex;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--line-2);
+}
+.analytics-dist-track i,
+.state-chart-track i { display: block; height: 100%; }
+.analytics-dist-row b {
+  font: 10px/1 var(--mono);
+  color: var(--ink-3);
+  text-align: right;
+}
+.analytics-insights {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 7px;
+}
+.analytics-insight {
+  padding: 7px 8px;
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+.analytics-insight b { color: var(--ink); }
+
+.state-chart { display: grid; gap: 7px; }
+.state-chart-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 72px;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.state-chart-row:hover .state-chart-code { color: var(--focus); }
+.state-chart-code { font: 700 10.5px/1 var(--mono); color: var(--ink-2); }
+.state-chart-track .done { background: var(--yes-ink); }
+.state-chart-track .issue { background: var(--issue-ink); }
+.state-chart-meta { font: 9.5px/1 var(--mono); color: var(--ink-3); text-align: right; }
+.chart-legend {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  color: var(--ink-3);
+  font-size: 9.5px;
+}
+.chart-legend i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-radius: 2px;
+}
+
+@media (max-width: 520px) {
+  .analytics-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analytics-overview { grid-template-columns: 1fr; justify-items: center; }
+  .analytics-dist { width: 100%; }
+  .analytics-insights { grid-template-columns: 1fr; }
+}
 
 .sect { padding: 12px 0 4px; }
 .sect > .micro { margin-bottom: 7px; }
@@ -1278,8 +1463,128 @@ body.npnowrap #npText { white-space: pre; overflow-x: auto; }
   tr.flash { animation: none; }
 }
 
+@media (max-width: 1550px) {
+  .bar { gap: 8px; padding-inline: 8px; }
+  .bar .group { gap: 4px; }
+  .bar button,
+  .bar .filelabel { padding-inline: 7px; }
+  .bar .crumb { max-width: 160px; }
+}
+
+@media (max-width: 1280px) {
+  .bar {
+    height: auto;
+    min-height: 46px;
+    padding-block: 6px;
+    flex-wrap: wrap;
+  }
+  .bar > .grow { display: none; }
+  .bar .crumb { margin-right: auto; }
+}
+
+/* ------------------------------------------------------------ dark mode */
+
+body.dark {
+  color-scheme: dark;
+  --paper:      #101214;
+  --panel:      #181b1e;
+  --ink:        #f2f4f5;
+  --ink-2:      #b6bdc4;
+  --ink-3:      #7f8993;
+  --line:       #2e3338;
+  --line-2:     #24292e;
+  --hair:       #3a4148;
+  --focus:      #73a5ff;
+
+  --yes-bg:   #163626;  --yes-ink:   #73dfa0;  --yes-line:   #28573b;
+  --no-bg:    #3a2020;  --no-ink:    #ff8d86;  --no-line:    #65302d;
+  --issue-bg: #3a2d18;  --issue-ink: #f1bd62;  --issue-line: #684c20;
+  --none-bg:  #131619;  --none-ink:  #69737d;
+
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 12px 28px -14px rgba(0,0,0,.75);
+}
+
+body.dark button:hover,
+body.dark .filelabel:hover { background: #24292e; }
+body.dark button.solid,
+body.dark .filelabel.solid,
+body.dark button.on,
+body.dark .badge.on,
+body.dark .npbar button.on {
+  color: #101214;
+  background: #f2f4f5;
+  border-color: #f2f4f5;
+}
+body.dark button.solid:hover,
+body.dark .filelabel.solid:hover { background: #dce1e4; }
+body.dark .banner.info,
+body.dark .autosave-badge.linked,
+body.dark .askinfo {
+  color: #9fc2ff;
+  background: #182945;
+  border-color: #29436d;
+}
+body.dark .banner button { background: rgba(16,18,20,.55); }
+body.dark tbody tr:hover td { background: #1d2125; }
+body.dark tr.grouprow td { background: #202429; }
+body.dark .cellnum:focus,
+body.dark .celltxt:focus,
+body.dark input.remarks:focus { background: #20252a; }
+body.dark td.flagcell.t-number:has(.cellnum:not(:placeholder-shown)),
+body.dark td.flagcell.t-text:has(.celltxt:not(:placeholder-shown)) { background: #1b2027; }
+body.dark tbody tr.sel td { background: #1a2b47; }
+body.dark tbody tr.sel:hover td { background: #203454; }
+body.dark .notes-tab:hover { background: rgba(255,255,255,.06); }
+body.dark .note-card { background: #1b1e22; }
+body.dark .note-card.cat-alpha,
+body.dark .note-card.cat-urgent { background: #251b1d; }
+body.dark .note-card.cat-beta,
+body.dark .note-card.cat-return { background: #272217; }
+body.dark .note-card.cat-gamma,
+body.dark .note-card.cat-call { background: #192131; }
+body.dark .note-card.cat-delta,
+body.dark .note-card.cat-todo { background: #17251f; }
+body.dark .note-card.cat-epsilon { background: #221b2d; }
+body.dark .empty code { background: #24282c; }
+body.dark .pickopt:hover { background: #20252a; }
+body.dark .pickopt.on { background: #192944; }
+body.dark .bulkbar { background: #1a2130; }
+body.dark .npsnip:hover { background: #20252a; }
+body.dark .helpkey { background: #192944; color: #9fc2ff; }
+
 .hidden { display: none !important; }
 body.resizing { cursor: col-resize; user-select: none; }
+
+/* CRM-only mode deliberately stays inside the browser viewport instead of
+   invoking the Fullscreen API. The browser's address bar remains visible,
+   while the application chrome yields every available pixel to the grid. */
+body.crm-only {
+  grid-template-rows: minmax(0, 1fr);
+}
+body.crm-only > .bar,
+body.crm-only > .banners,
+body.crm-only > .toolbar,
+body.crm-only > .statusbar,
+body.crm-only > .bulkbar {
+  display: none !important;
+}
+body.crm-only > .gridwrap,
+body.crm-only > .empty {
+  grid-row: 1;
+}
+
+.crm-only-exit {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 60;
+  color: #fff;
+  background: rgba(22, 24, 26, .9);
+  border-color: rgba(255, 255, 255, .25);
+  box-shadow: var(--shadow);
+}
+.crm-only-exit:hover { background: #2b2f33; }
+body.shortcuts-off #keyhints { display: none; }
 </style>
 </head>
 <body>
@@ -1292,9 +1597,12 @@ body.resizing { cursor: col-resize; user-select: none; }
 
   <div class="group">
     <button id="helpBtn" class="ghost" title="Keyboard shortcuts and what everything does (? or F1)" aria-label="Shortcuts and help">?</button>
+    <button id="shortcutsBtn" class="ghost" aria-pressed="true" title="Turn application keyboard shortcuts on or off">⌨ Shortcuts on</button>
+    <button id="themeBtn" class="ghost" aria-pressed="false" title="Switch between light and dark mode">◐ Dark</button>
+    <button id="crmOnlyBtn" title="Show only the CRM grid while keeping the browser address bar visible">⤢ CRM only</button>
     <button id="notepadBtn" title="Full-screen blank notepad with copyable snippets (Alt+P)">🗒️ Notepad</button>
     <button id="notesBtn" title="Note cards, scratchpad and every open issue (Ctrl+N)">📝 Quick Notes</button>
-    <button id="resetSessionBtn" class="ghost" title="Clear local session & start fresh">↻ New Session</button>
+    <button id="resetSessionBtn" class="ghost" title="Clear local session &amp; start fresh">↻ New Session</button>
   </div>
   <div class="rule"></div>
   <div class="group">
@@ -1305,6 +1613,7 @@ body.resizing { cursor: col-resize; user-select: none; }
   <div class="rule"></div>
   <div class="group">
     <button id="exportXlsx" disabled title="Real .xlsx workbook, formatted, 2 sheets">Export Excel</button>
+    <button id="exportAlpha" disabled title="Offline .xlsx with file name, state, abbreviation and qualification remark">Alpha Export</button>
     <button id="exportJson" disabled title="Save file — re-importable (Ctrl+S)">Export JSON</button>
     <button id="exportCsv" disabled title="Plain CSV of the visible rows">Export CSV</button>
   </div>
@@ -1315,9 +1624,9 @@ body.resizing { cursor: col-resize; user-select: none; }
 <div class="toolbar hidden" id="toolbar">
   <button id="addRowBtn" class="solid" style="padding:4px 10px;" title="Add a new custom return row">+ Add Row</button>
   <div class="rule"></div>
-  <input type="search" id="search" placeholder="Search ID, file, remarks…">
-  <select id="stateFilter" title="Filter by state"><option value="">All states</option></select>
-  <select id="statusFilter" title="Filter by progress">
+  <input type="search" id="search" placeholder="Search ID, file, remarks…" aria-label="Search returns">
+  <select id="stateFilter" title="Filter by state" aria-label="Filter by state"><option value="">All states</option></select>
+  <select id="statusFilter" title="Filter by progress" aria-label="Filter by progress">
     <option value="all">Everything</option>
     <option value="issue">Has an issue</option>
     <option value="open">Not finished</option>
@@ -1326,6 +1635,7 @@ body.resizing { cursor: col-resize; user-select: none; }
     <option value="none">Not started</option>
     <option value="nostate">Needs a state</option>
   </select>
+  <button id="clearFiltersBtn" class="ghost clear-filters hidden" title="Clear the search and both filters (Alt+R)">✕ Clear filters</button>
   <button id="groupBtn" title="Cluster rows by state">Group by state</button>
   <button id="viewBtn" title="Columns, density and input options">View</button>
   <button id="linkFileBtn" title="Write every change straight into manifest.json on disk">Link file</button>
@@ -1510,7 +1820,7 @@ Leave a blank line between chunks and each one becomes a snippet on the right, w
 </section>
 
 <div class="gridwrap hidden" id="gridwrap">
-  <table id="table">
+  <table id="table" aria-label="Returns qualification tracker">
     <colgroup id="colgroup"></colgroup>
     <thead><tr id="headRow"></tr></thead>
     <tbody id="rows"></tbody>
@@ -1582,6 +1892,7 @@ Leave a blank line between chunks and each one becomes a snippet on the right, w
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<button id="crmOnlyExit" class="crm-only-exit hidden" type="button">Exit CRM-only mode</button>
 
 <footer class="statusbar" id="statusbar">
   <span id="count">—</span>
@@ -1767,6 +2078,9 @@ var prefs = {
   pick:     true,    // show the tick box column
   padNoWrap: false,  // notepad: let long lines run off to the right
   padSide:  true,    // notepad: show the snippet rail
+  shortcuts:true,    // application hotkeys; browser shortcuts are untouched
+  crmOnly: false,    // grid-only page mode; browser chrome remains visible
+  dark:     false,
   group:    false,
   sort:     "id",
   dir:      1
@@ -1792,8 +2106,10 @@ var el = {
   toolbar: $("toolbar"), gridwrap: $("gridwrap"), colgroup: $("colgroup"),
   headRow: $("headRow"), rows: $("rows"), empty: $("empty"), pills: $("pills"),
   search: $("search"), stateFilter: $("stateFilter"), statusFilter: $("statusFilter"),
+  clearFiltersBtn: $("clearFiltersBtn"),
   groupBtn: $("groupBtn"), viewBtn: $("viewBtn"), manifestBtn: $("manifestBtn"),
-  exportXlsx: $("exportXlsx"), exportJson: $("exportJson"), exportCsv: $("exportCsv"),
+  exportXlsx: $("exportXlsx"), exportAlpha: $("exportAlpha"),
+  exportJson: $("exportJson"), exportCsv: $("exportCsv"),
   count: $("count"), dirtyLabel: $("dirty"),
   notesBtn: $("notesBtn"), resetSessionBtn: $("resetSessionBtn"),
   autoSaveBadge: $("autoSaveBadge"), linkFileBtn: $("linkFileBtn"), notesScrim: $("notesScrim"),
@@ -1817,9 +2133,68 @@ var el = {
   npDivider: $("npDivider"), npCopyAll: $("npCopyAll"), npWrap: $("npWrap"), npSnips: $("npSnips"),
   npSide: $("npSide"), npSnipList: $("npSnipList"),
   notepadBtn: $("notepadBtn"), padFullBtn: $("padFullBtn"), emptyNotepadBtn: $("emptyNotepadBtn"),
+  shortcutsBtn: $("shortcutsBtn"), themeBtn: $("themeBtn"),
+  crmOnlyBtn: $("crmOnlyBtn"), crmOnlyExit: $("crmOnlyExit"),
   helpBtn: $("helpBtn"), helpSheet: $("helpSheet"), helpScrim: $("helpScrim"),
   helpClose: $("helpClose")
 };
+
+function paintInterfacePrefs() {
+  var shortcutsOn = prefs.shortcuts !== false;
+  document.body.classList.toggle("shortcuts-off", !shortcutsOn);
+  document.body.classList.toggle("crm-only", !!prefs.crmOnly);
+  document.body.classList.toggle("dark", !!prefs.dark);
+
+  if (el.shortcutsBtn) {
+    el.shortcutsBtn.textContent = shortcutsOn ? "⌨ Shortcuts on" : "⌨ Shortcuts off";
+    el.shortcutsBtn.classList.toggle("on", shortcutsOn);
+    el.shortcutsBtn.setAttribute("aria-pressed", String(shortcutsOn));
+    el.shortcutsBtn.title = shortcutsOn
+      ? "Application keyboard shortcuts are on — click to turn them off"
+      : "Application keyboard shortcuts are off — click to turn them on";
+  }
+  if (el.crmOnlyBtn) {
+    el.crmOnlyBtn.setAttribute("aria-pressed", String(!!prefs.crmOnly));
+  }
+  if (el.themeBtn) {
+    el.themeBtn.textContent = prefs.dark ? "☀ Light" : "◐ Dark";
+    el.themeBtn.setAttribute("aria-pressed", String(!!prefs.dark));
+    el.themeBtn.title = prefs.dark ? "Switch to light mode" : "Switch to dark mode";
+  }
+  if (el.crmOnlyExit) {
+    el.crmOnlyExit.classList.toggle("hidden", !prefs.crmOnly);
+  }
+}
+
+function setCrmOnly(enabled) {
+  prefs.crmOnly = !!enabled;
+  savePrefs();
+  paintInterfacePrefs();
+  if (prefs.crmOnly) { toast("CRM-only mode on · browser address remains visible"); }
+}
+
+if (el.shortcutsBtn) {
+  el.shortcutsBtn.addEventListener("click", function () {
+    prefs.shortcuts = prefs.shortcuts === false;
+    savePrefs();
+    paintInterfacePrefs();
+    toast(prefs.shortcuts ? "Application shortcuts turned on" : "Application shortcuts turned off");
+  });
+}
+if (el.themeBtn) {
+  el.themeBtn.addEventListener("click", function () {
+    prefs.dark = !prefs.dark;
+    savePrefs();
+    paintInterfacePrefs();
+    toast(prefs.dark ? "Dark mode on" : "Light mode on");
+  });
+}
+if (el.crmOnlyBtn) {
+  el.crmOnlyBtn.addEventListener("click", function () { setCrmOnly(true); });
+}
+if (el.crmOnlyExit) {
+  el.crmOnlyExit.addEventListener("click", function () { setCrmOnly(false); });
+}
 
 /* =====================================================================
    3. Helpers
@@ -2197,7 +2572,7 @@ function adopt(parsed, label) {
   lastPicked = null;
   mirrorPad(null);
 
-  [el.exportXlsx, el.exportJson, el.exportCsv, el.manifestBtn].forEach(function (b) { b.disabled = false; });
+  [el.exportXlsx, el.exportAlpha, el.exportJson, el.exportCsv, el.manifestBtn].forEach(function (b) { b.disabled = false; });
   el.toolbar.classList.remove("hidden");
   el.gridwrap.classList.remove("hidden");
   el.empty.classList.add("hidden");
@@ -2593,7 +2968,10 @@ function render() {
   var html = "";
 
   if (view.length === 0) {
-    html = '<tr><td colspan="' + cols.length + '"><div class="nomatch">Nothing matches the current filters.</div></td></tr>';
+    html = '<tr><td colspan="' + cols.length + '"><div class="nomatch">' +
+      'Nothing matches the current search and filters.' +
+      '<button type="button" data-act="clear-filters">Clear search and filters</button>' +
+      '</div></td></tr>';
   } else if (prefs.group) {
     var last = null;
     var buckets = {};
@@ -2619,6 +2997,7 @@ function render() {
   buildFocusMap();
   renderPills();
   renderCount();
+  paintFilterState();
   renderBulkBar();
   paintAllPick();
   el.groupBtn.classList.toggle("on", prefs.group);
@@ -2672,18 +3051,33 @@ function renderPills() {
 
   var pct = allCells ? Math.round((filledCells / allCells) * 100) : 0;
 
-  function pill(cls, n, label, title) {
-    return '<span class="pill ' + cls + (n === 0 ? " zero" : "") + '"' +
-           (title ? ' title="' + esc(title) + '"' : "") + "><b>" + n + "</b>" + label + "</span>";
+  function pill(filter, cls, n, label, title) {
+    var active = filter === "all" ? !filtersActive() : el.statusFilter.value === filter;
+    var aria = (active ? "Showing " : "Show ") + n + " " + label;
+    return '<button type="button" class="pill ' + cls + (n === 0 ? " zero" : "") +
+           (active ? " active" : "") + '" data-filter="' + filter + '" aria-label="' +
+           esc(aria) + '" aria-pressed="' + String(active) + '"' + (n === 0 ? " disabled" : "") +
+           (title ? ' title="' + esc(title) + '"' : "") + "><b>" + n + "</b>" + label + "</button>";
   }
   el.pills.innerHTML =
-    pill("", total, "returns") +
-    pill("ok", done, "qualified", "Every yes/no/issue step marked yes") +
-    pill("warn", issues, "issues") +
-    pill("", fresh, "untouched", "No step marked and no data typed") +
-    (nostate ? pill("warn", nostate, "no state") : "") +
+    pill("all", "", total, "returns", "Show all returns") +
+    pill("done", "ok", done, "qualified", "Show returns with every yes/no/issue step marked yes") +
+    pill("issue", "warn", issues, "issues", "Show returns with one or more issues") +
+    pill("none", "", fresh, "untouched", "Show returns with no step marked and no data typed") +
+    (nostate ? pill("nostate", "warn", nostate, "no state", "Show returns that need a state") : "") +
     '<span class="pill" title="Steps marked yes plus data cells filled, across every column">' +
       "<b>" + pct + "%</b>complete</span>";
+}
+
+function filtersActive() {
+  return !!(el.search.value || el.stateFilter.value || el.statusFilter.value !== "all");
+}
+
+function paintFilterState() {
+  if (!el.clearFiltersBtn) { return; }
+  var active = filtersActive();
+  el.clearFiltersBtn.classList.toggle("hidden", !active);
+  el.clearFiltersBtn.setAttribute("aria-hidden", String(!active));
 }
 
 function renderCount() {
@@ -3101,6 +3495,11 @@ function undo() {
 /* ---- clicks in the grid ---- */
 
 el.rows.addEventListener("click", function (ev) {
+  if (ev.target.closest('[data-act="clear-filters"]')) {
+    clearFilters();
+    return;
+  }
+
   /* ticking a row. Shift extends from the last row you ticked, the way a file
      list does, because picking 40 consecutive returns one click at a time is the
      thing this feature exists to stop. */
@@ -3284,6 +3683,7 @@ function step(r, c, dir) {
 }
 
 el.rows.addEventListener("keydown", function (ev) {
+  if (prefs.shortcuts === false) { return; }
   var node = ev.target;
 
   if (node.classList.contains("remarks")) {
@@ -3400,6 +3800,7 @@ function inTextField(node) {
    at the bottom of the file that also handled Escape, so which overlay closed
    depended on which listener happened to run first. */
 document.addEventListener("keydown", function (ev) {
+  if (prefs.shortcuts === false) { return; }
   var meta = ev.metaKey || ev.ctrlKey;
   var typing = inTextField(ev.target);
   var k = ev.key;
@@ -3511,6 +3912,22 @@ el.fileInput.addEventListener("change", function () {
 [el.search, el.stateFilter, el.statusFilter].forEach(function (c) {
   c.addEventListener("input", render);
   c.addEventListener("change", render);
+});
+
+if (el.clearFiltersBtn) { el.clearFiltersBtn.addEventListener("click", clearFilters); }
+
+el.pills.addEventListener("click", function (ev) {
+  var btn = ev.target.closest("button[data-filter]");
+  if (!btn || btn.disabled) { return; }
+  var filter = btn.getAttribute("data-filter");
+  if (filter === "all") {
+    clearFilters();
+  } else {
+    el.statusFilter.value = el.statusFilter.value === filter ? "all" : filter;
+    render();
+  }
+  var next = el.pills.querySelector('button[data-filter="' + filter + '"]');
+  if (next) { next.focus(); }
 });
 
 el.groupBtn.addEventListener("click", function () {
@@ -3740,7 +4157,9 @@ function tidyNumber(n) {
 
 function openManifest() {
   closeSheet();
-  var total = manifest.returns.length || 1;
+  var totalReturns = manifest.returns.length;
+  var total = totalReturns || 1;
+  var statusCounts = { done:0, issue:0, progress:0, fresh:0, nostate:0 };
 
   var byState = {};
   manifest.returns.forEach(function (r) {
@@ -3749,9 +4168,84 @@ function openManifest() {
     byState[k].n++;
     if (isDone(r)) { byState[k].done++; }
     if (hasIssue(r)) { byState[k].issue++; }
+    if (!r.state_code) { statusCounts.nostate++; }
+
+    if (hasIssue(r)) { statusCounts.issue++; }
+    else if (isDone(r)) { statusCounts.done++; }
+    else if (isFresh(r)) { statusCounts.fresh++; }
+    else { statusCounts.progress++; }
   });
 
-  var stepsHtml = stepStats().map(function (s) {
+  function pct(n, base) { return base ? Math.round((n / base) * 100) : 0; }
+
+  var allStepStats = stepStats();
+  var statusStepStats = allStepStats.filter(function (s) { return s.type === "status"; });
+  var bottleneck = statusStepStats.slice().sort(function (a, b) {
+    return a.yes - b.yes;
+  })[0] || null;
+  var issueLeader = statusStepStats.slice().sort(function (a, b) {
+    return b.issue - a.issue;
+  })[0] || null;
+
+  var doneEnd = (statusCounts.done / total) * 100;
+  var issueEnd = doneEnd + (statusCounts.issue / total) * 100;
+  var progressEnd = issueEnd + (statusCounts.progress / total) * 100;
+  var donutStyle = "background:conic-gradient(" +
+    "var(--yes-ink) 0 " + doneEnd + "%," +
+    "var(--issue-ink) " + doneEnd + "% " + issueEnd + "%," +
+    "var(--focus) " + issueEnd + "% " + progressEnd + "%," +
+    "var(--line) " + progressEnd + "% 100%)";
+
+  var distRows = [
+    { label:"Qualified", n:statusCounts.done, color:"var(--yes-ink)" },
+    { label:"Has issue", n:statusCounts.issue, color:"var(--issue-ink)" },
+    { label:"In progress", n:statusCounts.progress, color:"var(--focus)" },
+    { label:"Not started", n:statusCounts.fresh, color:"var(--ink-3)" }
+  ].map(function (item) {
+    return '<div class="analytics-dist-row"><span>' + item.label + '</span>' +
+      '<span class="analytics-dist-track"><i style="width:' + pct(item.n, totalReturns) +
+      "%;background:" + item.color + '"></i></span><b>' + item.n + "</b></div>";
+  }).join("");
+
+  var insightsHtml = statusStepStats.length
+    ? '<div class="analytics-insights">' +
+        '<div class="analytics-insight"><b>Bottleneck:</b> ' + esc(bottleneck.label) + " · " +
+          pct(bottleneck.yes, totalReturns) + '% marked yes</div>' +
+        '<div class="analytics-insight"><b>Most issues:</b> ' + esc(issueLeader.label) + " · " +
+          issueLeader.issue + ' issue' + (issueLeader.issue === 1 ? "" : "s") + "</div>" +
+      "</div>"
+    : '<div class="analytics-insights"><div class="analytics-insight">No status columns available for step analytics.</div></div>';
+
+  var analyticsHtml =
+    '<div class="analytics-kpis">' +
+      '<div class="analytics-kpi"><strong>' + totalReturns + '</strong><span>Total returns</span></div>' +
+      '<div class="analytics-kpi good"><strong>' + pct(statusCounts.done, totalReturns) + '%</strong><span>Qualified</span></div>' +
+      '<div class="analytics-kpi warn"><strong>' + statusCounts.issue + '</strong><span>With issues</span></div>' +
+      '<div class="analytics-kpi"><strong>' + statusCounts.nostate + '</strong><span>Need state</span></div>' +
+    "</div>" +
+    '<div class="analytics-card"><div class="analytics-card-title">Workflow health</div>' +
+      '<div class="analytics-overview">' +
+        '<div class="analytics-donut" role="img" aria-label="' + pct(statusCounts.done, totalReturns) +
+          '% of returns qualified" style="' + donutStyle + '">' +
+          '<div class="analytics-donut-hole"><strong>' + pct(statusCounts.done, totalReturns) +
+          '%</strong><span>Qualified</span></div></div>' +
+        '<div class="analytics-dist">' + distRows + "</div>" +
+      "</div>" + insightsHtml + "</div>";
+
+  var stateChartHtml = Object.keys(byState).sort(function (a, b) {
+    return byState[b].n - byState[a].n || a.localeCompare(b);
+  }).slice(0, 8).map(function (k) {
+    var s = byState[k];
+    return '<div class="state-chart-row" data-state="' + esc(k) + '" title="Filter CRM to this state">' +
+      '<span class="state-chart-code">' + esc(k) + '</span>' +
+      '<span class="state-chart-track" role="img" aria-label="' + s.done + " qualified and " + s.issue +
+        " with issues out of " + s.n + '">' +
+        '<i class="done" style="width:' + pct(s.done, s.n) + '%"></i>' +
+        '<i class="issue" style="width:' + pct(s.issue, s.n) + '%"></i></span>' +
+      '<span class="state-chart-meta">' + s.done + "/" + s.n + " qualified</span></div>";
+  }).join("") || '<div style="color:var(--ink-3);font-size:11px;">No state data yet.</div>';
+
+  var stepsHtml = allStepStats.map(function (s) {
     function seg(cls, n) { return n ? '<span class="' + cls + '" style="width:' + ((n / total) * 100) + '%"></span>' : ""; }
 
     if (s.type !== "status") {
@@ -3798,10 +4292,11 @@ function openManifest() {
   scrim.className = "scrim";
 
   var node = document.createElement("aside");
-  node.className = "sheet";
+  node.className = "sheet manifest-sheet";
   node.innerHTML =
-    '<header><span class="grow">Manifest</span><button class="ghost" data-act="close">Close</button></header>' +
+    '<header><span class="grow">Manifest analytics</span><button class="ghost" data-act="close">Close</button></header>' +
     '<div class="body">' +
+      '<div class="sect"><div class="micro">Analytics overview</div>' + analyticsHtml + "</div>" +
       '<div class="sect"><div class="micro">Source</div><dl class="kv">' +
         "<dt>Folder</dt><dd>" + esc(manifest.assignment_folder || "—") + "</dd>" +
         "<dt>Generated</dt><dd>" + esc(manifest.generated_at || "—") + "</dd>" +
@@ -3811,13 +4306,18 @@ function openManifest() {
         "<dt>Unexported</dt><dd>" + dirty + " edit" + (dirty === 1 ? "" : "s") + "</dd>" +
       "</dl></div>" +
       '<div class="sect"><div class="micro">Progress by step</div><div class="steps">' + stepsHtml + "</div></div>" +
-      '<div class="sect"><div class="micro">By state</div><table class="mini">' +
+      '<div class="sect"><div class="micro">State performance · top by volume</div>' +
+        '<div class="analytics-card"><div class="state-chart">' + stateChartHtml + "</div>" +
+        '<div class="chart-legend"><span><i style="background:var(--yes-ink)"></i>Qualified</span>' +
+        '<span><i style="background:var(--issue-ink)"></i>Has issue</span></div></div></div>' +
+      '<div class="sect"><div class="micro">State detail</div><table class="mini">' +
         "<thead><tr><th>State</th><th>Returns</th><th>Done</th><th>Issues</th></tr></thead>" +
         "<tbody>" + statesHtml + "</tbody></table></div>" +
       '<div class="sect"><div class="micro">Flagged by intake</div><div class="flaglist">' + flaggedHtml + "</div></div>" +
     "</div>" +
     '<footer>' +
       '<button class="solid" data-act="xlsx">Export Excel</button>' +
+      '<button data-act="alpha">Alpha Export</button>' +
       '<button data-act="json">Export JSON</button>' +
       '<button data-act="csv">Export CSV</button>' +
       '<button class="ghost grow" data-act="forget" title="Clear the localStorage safety copy">Clear saved session</button>' +
@@ -3840,6 +4340,7 @@ function openManifest() {
     var act = ev.target.getAttribute("data-act");
     if (act === "close")  { closeSheet(); }
     if (act === "xlsx")   { exportXlsx(); }
+    if (act === "alpha")  { exportAlpha(); }
     if (act === "json")   { exportJson(); }
     if (act === "csv")    { exportCsv(); }
     if (act === "forget") {
@@ -4143,6 +4644,75 @@ function stylesXml() {
     '<dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2"/></styleSheet>';
 }
 
+/* A compact one-sheet package for purpose-built exports. It uses the same
+   completely offline ZIP/XML writer and visual styles as the full workbook. */
+function singleSheetWorkbook(sheetName, worksheetXml) {
+  return zipStore([
+    { name: "[Content_Types].xml", data:
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      "</Types>" },
+    { name: "_rels/.rels", data:
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      "</Relationships>" },
+    { name: "xl/workbook.xml", data:
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<sheets><sheet name="' + xmlEsc(sheetName) + '" sheetId="1" r:id="rId1"/></sheets>' +
+      "</workbook>" },
+    { name: "xl/_rels/workbook.xml.rels", data:
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      "</Relationships>" },
+    { name: "xl/styles.xml", data: stylesXml() },
+    { name: "xl/worksheets/sheet1.xml", data: worksheetXml }
+  ]);
+}
+
+function exportAlpha() {
+  if (!manifest) { return; }
+
+  var rows = [[
+    { v: "id", s: S.head },
+    { v: "state", s: S.head },
+    { v: "abbreviation", s: S.head },
+    { v: "remark", s: S.head }
+  ]];
+
+  /* Alpha Export always writes the complete CRM, regardless of search or
+     filters. Completed means every status field is Yes, which is the same
+     qualification rule used everywhere else in the tracker. */
+  manifest.returns.forEach(function (r) {
+    var qualified = isDone(r);
+    rows.push([
+      { v: r.filename || "", s: S.id },
+      { v: r.state_name || STATES[r.state_code] || "", s: S.plain },
+      { v: r.state_code || "", s: S.plain },
+      { v: qualified ? "Qualified" : (r.remarks || ""), s: qualified ? S.yes : S.wrap }
+    ]);
+  });
+
+  var sheet = sheetXml(rows, {
+    freeze: true,
+    filter: true,
+    widths: [34, 22, 16, 60],
+    tab: true
+  });
+  saveBlob("alpha-export-" + stamp() + ".xlsx", singleSheetWorkbook("Alpha Export", sheet));
+  toast("Alpha Export created · " + manifest.returns.length + " CRM record" +
+        (manifest.returns.length === 1 ? "" : "s"));
+}
+
 function exportXlsx() {
   if (!manifest) { return; }
   var visible = exportableRows();
@@ -4373,6 +4943,7 @@ function exportXlsx() {
 el.exportJson.addEventListener("click", exportJson);
 el.exportCsv.addEventListener("click", exportCsv);
 el.exportXlsx.addEventListener("click", exportXlsx);
+el.exportAlpha.addEventListener("click", exportAlpha);
 
 /* =====================================================================
    12. Real-Time Auto-Persistence & Fancy Quick Notes Hub
@@ -4753,7 +5324,7 @@ function resetSession() {
     el.toolbar.classList.add("hidden");
     el.gridwrap.classList.add("hidden");
     el.empty.classList.remove("hidden");
-    [el.exportXlsx, el.exportJson, el.exportCsv, el.manifestBtn].forEach(function (b) { b.disabled = true; });
+    [el.exportXlsx, el.exportAlpha, el.exportJson, el.exportCsv, el.manifestBtn].forEach(function (b) { b.disabled = true; });
     updateLinkBtn();
     paintDirty();
     closeNotes();
@@ -5754,7 +6325,7 @@ var HELP_KEYS = [
     { keys:["?"], alts:[["F1"]], what:"This sheet" },
     { keys:["Alt","P"], what:"<b>Notepad</b> — the blank page, full screen" },
     { keys:["Mod","N"], alts:[["Alt","N"]], what:"<b>Quick Notes</b> — cards, scratchpad, open issues" },
-    { keys:["Alt","M"], what:"<b>Manifest</b> — progress per column, breakdown by state" },
+    { keys:["Alt","M"], what:"<b>Manifest</b> — KPI cards, workflow charts, step progress and state performance" },
     { keys:["Alt","V"], what:"<b>View</b> — add, rename, retype, hide and reorder columns" },
     { keys:["Esc"], what:"Close whatever is on top, one layer per press" }
   ]},
@@ -5777,6 +6348,7 @@ var HELP_KEYS = [
     { keys:["Mod","S"], what:"<b>Export JSON</b> — the save file, always every return" },
     { keys:["Alt","X"], what:"<b>Export Excel</b> — a real .xlsx of the rows you can see" },
     { keys:["Alt","C"], what:"<b>Export CSV</b> — same rows, plain text" },
+    { keys:["button"], what:"<b>Alpha Export</b> — every CRM return in a four-column offline .xlsx" },
     { keys:["Alt","L"], what:"Link manifest.json so every change is written straight to disk" }
   ]},
 
@@ -5789,6 +6361,29 @@ var HELP_KEYS = [
 ];
 
 var HELP_FEATURES = [
+  { title:"One-click attention filters", key:"Alt+R", body:
+    "The counters at the right of the toolbar are also filters. Click <b>issues</b>, " +
+    "<b>untouched</b>, <b>qualified</b> or <b>no state</b> to show that queue; click the active " +
+    "counter again to remove that progress filter. Click <b>returns</b> or <b>Clear filters</b> " +
+    "to reset the search, state and progress filters together." },
+
+  { title:"Manifest analytics", key:"Alt+M", body:
+    "The Manifest panel summarizes the entire CRM with qualification, issue and state-assignment KPIs; " +
+    "a workflow-health donut; status distribution; bottleneck and issue insights; step progress; and " +
+    "state-performance bars. Click a state bar or state-detail row to filter the CRM to that state." },
+
+  { title:"Alpha Export", body:
+    "Writes <b>every CRM return</b> to a true offline Excel workbook with exactly four columns: " +
+    "<b>id</b> (the file name), <b>state</b>, <b>abbreviation</b> and <b>remark</b>. Fully qualified " +
+    "returns say <b>Qualified</b>; every other return uses its CRM remark, including a blank remark." },
+
+  { title:"Display, shortcuts and CRM-only mode", body:
+    "The <b>Dark / Light</b> control switches the complete tracker theme and remembers your choice. " +
+    "The <b>Shortcuts on/off</b> button controls only this app’s keyboard commands; browser shortcuts " +
+    "and ordinary typing keep working. <b>CRM only</b> hides the application header, toolbar, banners " +
+    "and status bar without entering browser full screen, so the site URL remains visible. Use the " +
+    "floating exit button to restore the full interface." },
+
   { title:"Three kinds of column", key:"Alt+V", body:
     "A column holds one of three things, and you pick which when you add it. " +
     "<b>Yes / No / Issue</b> is the tracker default and is what counts towards <i>qualified</i> " +
@@ -5918,6 +6513,7 @@ if ($("helpSearch")) { $("helpSearch").addEventListener("input", renderHelp); }
    ===================================================================== */
 
 loadPrefs();
+paintInterfacePrefs();
 el.groupBtn.classList.toggle("on", prefs.group);
 document.body.classList.toggle("compact", prefs.compact);
 paintPadWrap();
