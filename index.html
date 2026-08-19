@@ -1613,7 +1613,7 @@ body.shortcuts-off #keyhints { display: none; }
   <div class="rule"></div>
   <div class="group">
     <button id="exportXlsx" disabled title="Real .xlsx workbook, formatted, 2 sheets">Export Excel</button>
-    <button id="exportAlpha" disabled title="Offline .xlsx with file name, state, abbreviation and qualification remark">Alpha Export</button>
+    <button id="exportAlpha" disabled title="Offline .xlsx with return name, state code and qualification remark">Alpha Export</button>
     <button id="exportJson" disabled title="Save file — re-importable (Ctrl+S)">Export JSON</button>
     <button id="exportCsv" disabled title="Plain CSV of the visible rows">Export CSV</button>
   </div>
@@ -4683,10 +4683,9 @@ function exportAlpha() {
   if (!manifest) { return; }
 
   var rows = [[
-    { v: "id", s: S.head },
-    { v: "state", s: S.head },
-    { v: "abbreviation", s: S.head },
-    { v: "remark", s: S.head }
+    { v: "Return / ID", s: S.head },
+    { v: "State code", s: S.head },
+    { v: "Remarks", s: S.head }
   ]];
 
   /* Alpha Export always writes the complete CRM, regardless of search or
@@ -4694,9 +4693,9 @@ function exportAlpha() {
      qualification rule used everywhere else in the tracker. */
   manifest.returns.forEach(function (r) {
     var qualified = isDone(r);
+    var returnId = String(r.filename || r.id || "").replace(/\.pdf$/i, "");
     rows.push([
-      { v: r.filename || "", s: S.id },
-      { v: r.state_name || STATES[r.state_code] || "", s: S.plain },
+      { v: returnId, s: S.id },
       { v: r.state_code || "", s: S.plain },
       { v: qualified ? "Qualified" : (r.remarks || ""), s: qualified ? S.yes : S.wrap }
     ]);
@@ -4705,7 +4704,7 @@ function exportAlpha() {
   var sheet = sheetXml(rows, {
     freeze: true,
     filter: true,
-    widths: [34, 22, 16, 60],
+    widths: [48, 14, 28],
     tab: true
   });
   saveBlob("alpha-export-" + stamp() + ".xlsx", singleSheetWorkbook("Alpha Export", sheet));
@@ -6348,7 +6347,7 @@ var HELP_KEYS = [
     { keys:["Mod","S"], what:"<b>Export JSON</b> — the save file, always every return" },
     { keys:["Alt","X"], what:"<b>Export Excel</b> — a real .xlsx of the rows you can see" },
     { keys:["Alt","C"], what:"<b>Export CSV</b> — same rows, plain text" },
-    { keys:["button"], what:"<b>Alpha Export</b> — every CRM return in a four-column offline .xlsx" },
+    { keys:["button"], what:"<b>Alpha Export</b> — every CRM return in a three-column offline .xlsx" },
     { keys:["Alt","L"], what:"Link manifest.json so every change is written straight to disk" }
   ]},
 
@@ -6373,9 +6372,9 @@ var HELP_FEATURES = [
     "state-performance bars. Click a state bar or state-detail row to filter the CRM to that state." },
 
   { title:"Alpha Export", body:
-    "Writes <b>every CRM return</b> to a true offline Excel workbook with exactly four columns: " +
-    "<b>id</b> (the file name), <b>state</b>, <b>abbreviation</b> and <b>remark</b>. Fully qualified " +
-    "returns say <b>Qualified</b>; every other return uses its CRM remark, including a blank remark." },
+    "Writes <b>every CRM return</b> to a true offline Excel workbook with exactly three columns: " +
+    "<b>Return / ID</b> (the file name without .pdf), <b>State code</b> and <b>Remarks</b>. Fully " +
+    "qualified returns say <b>Qualified</b>; every other return uses its CRM remark, including a blank remark." },
 
   { title:"Display, shortcuts and CRM-only mode", body:
     "The <b>Dark / Light</b> control switches the complete tracker theme and remembers your choice. " +
