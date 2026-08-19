@@ -747,6 +747,22 @@ tr.flash {
   color: var(--ink);
 }
 
+.col-drag-handle {
+  flex: none;
+  color: var(--ink-3);
+  cursor: grab;
+  font-size: 11px;
+  letter-spacing: -2px;
+  line-height: 16px;
+  padding: 0 3px 0 1px;
+  border-radius: 3px;
+}
+.col-drag-handle:hover { color: var(--ink); background: var(--line); }
+.col-drag-handle:active { cursor: grabbing; }
+thead th.col-dragging { opacity: .45; }
+thead th.col-drop-before { box-shadow: inset 3px 0 0 var(--focus); }
+thead th.col-drop-after { box-shadow: inset -3px 0 0 var(--focus); }
+
 tr.dragging {
   opacity: 0.4;
   background: #eef2ff !important;
@@ -2046,7 +2062,31 @@ function getColumns() {
   cols.push({ key:"remarks", label:remarksLabel, def:240, min:90, kind:"remarks" });
   cols.push({ key:"actions", label:"",           def:32,  min:28, kind:"actions" });
 
-  return cols;
+  return applyColumnOrder(cols);
+}
+
+/* Selection and row-drag controls stay pinned at the left, and row actions at
+   the right. Everything that represents actual return data can be placed in
+   any order. Unknown/new columns are appended until the user places them. */
+function applyColumnOrder(cols) {
+  if (typeof prefs === "undefined" || !Array.isArray(prefs.columnOrder) || !prefs.columnOrder.length) {
+    return cols;
+  }
+
+  var left = cols.filter(function (c) { return c.kind === "pick" || c.kind === "drag"; });
+  var right = cols.filter(function (c) { return c.kind === "actions"; });
+  var movable = cols.filter(function (c) {
+    return c.kind !== "pick" && c.kind !== "drag" && c.kind !== "actions";
+  });
+  var byKey = {};
+  movable.forEach(function (c) { byKey[c.key] = c; });
+
+  var ordered = [];
+  prefs.columnOrder.forEach(function (key) {
+    if (byKey[key]) { ordered.push(byKey[key]); delete byKey[key]; }
+  });
+  movable.forEach(function (c) { if (byKey[c.key]) { ordered.push(c); delete byKey[c.key]; } });
+  return left.concat(ordered, right);
 }
 
 /* =====================================================================
@@ -2076,6 +2116,8 @@ var prefs = {
   input:    "cycle", // "cycle" | "select"
   advance:  true,    // move down after marking with a key
   pick:     true,    // show the tick box column
+  reorder:  false,   // show handles for drag-to-place rows and columns
+  columnOrder: [],   // data-column keys, stored as a local layout preference
   padNoWrap: false,  // notepad: let long lines run off to the right
   padSide:  true,    // notepad: show the snippet rail
   shortcuts:true,    // application hotkeys; browser shortcuts are untouched
@@ -2639,6 +2681,7 @@ function shownColumns() {
     /* The tick boxes are a toggle of their own rather than an entry in the
        show/hide list: they are a tool, not one of your columns. */
     if (c.kind === "pick") { return prefs.pick !== false; }
+    if (c.kind === "drag") { return prefs.reorder === true; }
     return !prefs.hidden[c.key];
   });
 }
@@ -2675,10 +2718,13 @@ function buildHead() {
              "</th>";
     }
 
-    return '<th scope="col" class="' + (c.mid ? "mid " : "") + (folded ? "folded " : "") + (sorted ? "sorted" : "") +
+    var canPlace = prefs.reorder === true && c.kind !== "drag" && c.kind !== "actions";
+    return '<th scope="col" class="' + (c.mid ? "mid " : "") + (folded ? "folded " : "") +
+             (sorted ? "sorted " : "") + (canPlace ? "col-placeable" : "") +
              '" data-col="' + c.key + '" title="' + esc(c.title || c.label) + '">' +
              '<div class="wrapper">' +
                '<div class="hd" data-act="sort">' +
+                 (canPlace ? '<span class="col-drag-handle" draggable="true" data-col-drag title="Drag to place this column">⋮⋮</span>' : "") +
                  (folded ? "" : '<span class="lbl">' + esc(c.label) + "</span>") +
                  (arrow ? '<span class="dir">' + arrow + "</span>" : "") +
                  '<span class="fold" data-act="fold" title="' +
@@ -2757,12 +2803,98 @@ el.headRow.addEventListener("click", function (ev) {
     return;
   }
   if (ev.target.closest(".grip")) { return; }
+  if (ev.target.closest("[data-col-drag]")) { return; }
   if (!col.sort) { return; }
 
   if (prefs.sort === col.sort) { prefs.dir = -prefs.dir; } else { prefs.sort = col.sort; prefs.dir = 1; }
   savePrefs();
   buildHead();
   render();
+});
+
+/* ---- drag to place columns ----
+   Only the small header handle starts a move, keeping ordinary header clicks
+   available for sorting and the divider available for resizing. */
+var draggedColumnKey = null;
+
+function movableColumnKeys() {
+  return getColumns().filter(function (c) {
+    return c.kind !== "pick" && c.kind !== "drag" && c.kind !== "actions";
+  }).map(function (c) { return c.key; });
+}
+
+function clearColumnDropMarkers() {
+  var heads = el.headRow.querySelectorAll("th");
+  for (var i = 0; i < heads.length; i++) {
+    heads[i].classList.remove("col-drop-before", "col-drop-after");
+  }
+}
+
+el.headRow.addEventListener("dragstart", function (ev) {
+  var handle = ev.target.closest("[data-col-drag]");
+  if (!handle || prefs.reorder !== true) { ev.preventDefault(); return; }
+  var th = handle.closest("th[data-col]");
+  if (!th) { ev.preventDefault(); return; }
+
+  draggedColumnKey = th.getAttribute("data-col");
+  th.classList.add("col-dragging");
+  if (ev.dataTransfer) {
+    ev.dataTransfer.effectAllowed = "move";
+    ev.dataTransfer.setData("text/plain", draggedColumnKey);
+  }
+});
+
+el.headRow.addEventListener("dragover", function (ev) {
+  if (!draggedColumnKey) { return; }
+  var th = ev.target.closest("th[data-col]");
+  if (!th) { return; }
+  var targetKey = th.getAttribute("data-col");
+  if (targetKey === draggedColumnKey || movableColumnKeys().indexOf(targetKey) === -1) { return; }
+
+  ev.preventDefault();
+  if (ev.dataTransfer) { ev.dataTransfer.dropEffect = "move"; }
+  clearColumnDropMarkers();
+  var rect = th.getBoundingClientRect();
+  th.classList.add(ev.clientX < rect.left + rect.width / 2 ? "col-drop-before" : "col-drop-after");
+});
+
+el.headRow.addEventListener("dragleave", function (ev) {
+  var th = ev.target.closest("th[data-col]");
+  if (th) { th.classList.remove("col-drop-before", "col-drop-after"); }
+});
+
+el.headRow.addEventListener("drop", function (ev) {
+  var th = ev.target.closest("th[data-col]");
+  var fromKey = draggedColumnKey;
+  draggedColumnKey = null;
+  if (!th || !fromKey) { clearColumnDropMarkers(); return; }
+
+  var targetKey = th.getAttribute("data-col");
+  var keys = movableColumnKeys();
+  var from = keys.indexOf(fromKey);
+  var target = keys.indexOf(targetKey);
+  if (from === -1 || target === -1 || from === target) { clearColumnDropMarkers(); return; }
+
+  ev.preventDefault();
+  var rect = th.getBoundingClientRect();
+  var after = ev.clientX >= rect.left + rect.width / 2;
+  keys.splice(from, 1);
+  target = keys.indexOf(targetKey);
+  keys.splice(target + (after ? 1 : 0), 0, fromKey);
+
+  prefs.columnOrder = keys;
+  savePrefs();
+  clearColumnDropMarkers();
+  buildHead();
+  render();
+  toast("Column placed · View keeps this layout on this browser");
+});
+
+el.headRow.addEventListener("dragend", function () {
+  draggedColumnKey = null;
+  clearColumnDropMarkers();
+  var moving = el.headRow.querySelector(".col-dragging");
+  if (moving) { moving.classList.remove("col-dragging"); }
 });
 
 /* The select-all box lives in a th, so its click would otherwise fall through to
@@ -4044,6 +4176,8 @@ el.viewBtn.addEventListener("click", function () {
           '<label class="item"><input type="checkbox" data-pref="compact"' + (prefs.compact ? " checked" : "") + "> Compact rows</label>" +
           '<label class="item"><input type="checkbox" data-pref="pick"' + (prefs.pick !== false ? " checked" : "") +
             '> Tick boxes for selecting rows<span class="k">Ctrl+A</span></label>' +
+          '<label class="item"><input type="checkbox" data-pref="reorder"' + (prefs.reorder === true ? " checked" : "") +
+            '> Drag to place rows and columns<span class="k">⋮⋮</span></label>' +
           '<label class="item"><input type="checkbox" data-manual' + (prefs.sort === "manual" ? " checked" : "") +
             '> Manual row order<span class="k">drag ⋮⋮</span></label>' +
           '<div class="item act" data-act="resetw">Reset column widths<span class="k">dbl-click a divider</span></div>' +
@@ -4088,7 +4222,7 @@ el.viewBtn.addEventListener("click", function () {
       savePrefs();
       /* Toggling the tick boxes adds or drops a column, so the head and the
          colgroup have to be rebuilt, not just the rows. */
-      if (pref === "pick") { buildHead(); }
+      if (pref === "pick" || pref === "reorder") { buildHead(); }
       render();
       return;
     }
@@ -5470,7 +5604,7 @@ if (el.rows) {
   el.rows.addEventListener("dragstart", function (ev) {
     /* Only the handle starts a drag. With the whole row draggable, selecting
        text inside a remarks box turned into a row drag. */
-    if (!ev.target.closest(".drag-handle")) { ev.preventDefault(); return; }
+    if (prefs.reorder !== true || !ev.target.closest(".drag-handle")) { ev.preventDefault(); return; }
     var tr = ev.target.closest("tr[data-i]");
     if (!tr) { ev.preventDefault(); return; }
 
@@ -6338,7 +6472,7 @@ var HELP_KEYS = [
   { group: "Rows and columns", items: [
     { keys:["Insert"], what:"Add a return by hand" },
     { keys:["Mod","Z"], what:"Undo — 200 deep, and it covers everything that counts as an edit" },
-    { keys:["drag","⋮⋮"], what:"Reorder rows. Switches the grid to manual order and says so" },
+    { keys:["drag","⋮⋮"], what:"Place rows or columns after enabling <b>View → Drag to place rows and columns</b>" },
     { keys:["drag","│"], what:"Resize a column. Double-click a divider to reset it" },
     { keys:["‹"], what:"Collapse a column to a sliver — hover its header" }
   ]},
@@ -6360,6 +6494,12 @@ var HELP_KEYS = [
 ];
 
 var HELP_FEATURES = [
+  { title:"Drag to place rows and columns", key:"Alt+V", body:
+    "In <b>View → Layout</b>, turn on <b>Drag to place rows and columns</b>. A handle appears " +
+    "beside every row and in each data-column header. Drag a row handle to place the return; " +
+    "drag a header handle to place the column. Row placement switches to manual row order. " +
+    "Column placement is remembered on this browser without changing the manifest data." },
+
   { title:"One-click attention filters", key:"Alt+R", body:
     "The counters at the right of the toolbar are also filters. Click <b>issues</b>, " +
     "<b>untouched</b>, <b>qualified</b> or <b>no state</b> to show that queue; click the active " +

@@ -10,7 +10,7 @@
  * afterwards so a stray 300ms autosave timer cannot bleed into the next one. */
 
 const H = require("./harness.js");
-const { fire, click, key, dragRow, sleep } = H;
+const { fire, click, key, dragRow, dragColumn, sleep } = H;
 
 /* ------------------------------------------------------------------ assert */
 
@@ -86,6 +86,14 @@ function allYes() {
 
 function ids(win) { return win.manifest.returns.map(function (r) { return r.id; }); }
 function trs(doc) { return Array.prototype.slice.call(doc.querySelectorAll("#rows tr[data-i]")); }
+
+function enableDragMode(t) {
+  click(t.doc.getElementById("viewBtn"));
+  const toggle = t.doc.querySelector('.menu [data-pref="reorder"]');
+  ok(toggle, "View offers drag-to-place mode");
+  click(toggle);
+  eq(t.win.prefs.reorder, true, "drag-to-place mode is enabled");
+}
 
 /* excel serial for an ISO date, worked out independently of the app */
 function serialOf(iso) {
@@ -183,6 +191,7 @@ test("deleting a row asks first, removes exactly that row, and undo puts it back
 test("dragging a row down and dropping above the target lands it above the target", function () {
   const t = open();
   t.win.adopt(fixture(5), "manifest.json");
+  enableDragMode(t);
   deepEq(ids(t.win), ["R1", "R2", "R3", "R4", "R5"]);
 
   const rows = trs(t.doc);
@@ -200,6 +209,7 @@ test("dragging a row down and dropping above the target lands it above the targe
 test("dragging a row up and dropping below the target lands it below the target", function () {
   const t = open();
   t.win.adopt(fixture(5), "manifest.json");
+  enableDragMode(t);
 
   const rows = trs(t.doc);
   dragRow(rows[4], rows[1], "below");          // R5 up, dropped below R2
@@ -209,6 +219,35 @@ test("dragging a row up and dropping below the target lands it below the target"
 
   t.win.undo();
   deepEq(ids(t.win), ["R1", "R2", "R3", "R4", "R5"], "undo puts the row back where it started");
+});
+
+test("View drag mode exposes handles and remembers column placement", function () {
+  const t = open();
+  t.win.adopt(fixture(2), "manifest.json");
+
+  eq(t.doc.querySelectorAll(".drag-handle").length, 0, "row handles are hidden before drag mode is enabled");
+  eq(t.doc.querySelectorAll(".col-drag-handle").length, 0, "column handles are hidden too");
+
+  enableDragMode(t);
+  eq(t.doc.querySelectorAll(".drag-handle").length, 2, "each return gets a row handle");
+  ok(t.doc.querySelectorAll(".col-drag-handle").length > 2, "data columns get header handles");
+
+  const id = t.doc.querySelector('#headRow th[data-col="id"]');
+  const state = t.doc.querySelector('#headRow th[data-col="state"]');
+  dragColumn(id, state, "after");
+
+  const placed = Array.prototype.slice.call(t.doc.querySelectorAll("#headRow th[data-col]"))
+    .map(function (th) { return th.getAttribute("data-col"); })
+    .filter(function (key) { return key !== "pick" && key !== "drag" && key !== "actions"; });
+  deepEq(placed.slice(0, 2), ["state", "id"], "Return / ID is placed immediately after State");
+  deepEq(t.win.prefs.columnOrder.slice(0, 2), ["state", "id"], "the chosen order is saved as a preference");
+
+  const resumed = open({ seedPrefs: { reorder:true, columnOrder:t.win.prefs.columnOrder } });
+  resumed.win.adopt(fixture(1), "manifest.json");
+  const resumedKeys = Array.prototype.slice.call(resumed.doc.querySelectorAll("#headRow th[data-col]"))
+    .map(function (th) { return th.getAttribute("data-col"); })
+    .filter(function (key) { return key !== "pick" && key !== "drag" && key !== "actions"; });
+  deepEq(resumedKeys.slice(0, 2), ["state", "id"], "the placement returns in a new session");
 });
 
 test("add row refuses a duplicate id and accepts a unique one", function () {

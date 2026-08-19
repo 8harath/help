@@ -192,6 +192,18 @@ function dragRow(fromTr, toTr, where) {
   fire(handle, "dragend", { dataTransfer: dt });
 }
 
+/* Drag a column header handle onto another data-column header. */
+function dragColumn(fromTh, toTh, where) {
+  const dt = dataTransfer();
+  const handle = fromTh.querySelector(".col-drag-handle");
+  const headRow = fromTh.parentElement;
+  fire(handle, "dragstart", { dataTransfer: dt });
+  const clientX = where === "before" ? -1 : 1;
+  fire(toTh, "dragover", { dataTransfer: dt, clientX });
+  fire(toTh, "drop", { dataTransfer: dt, clientX });
+  fire(headRow, "dragend", { dataTransfer: dt });
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-module.exports = { boot, fire, click, key, dragRow, dataTransfer, sleep, unzipStored, TestBlob, APP };
+module.exports = { boot, fire, click, key, dragRow, dragColumn, dataTransfer, sleep, unzipStored, TestBlob, APP };
