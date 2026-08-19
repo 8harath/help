@@ -155,7 +155,7 @@ so none of those are used.
 |---|---|
 | **?** | Shortcuts and what everything does (`?` or `F1`) |
 | **Import** | Load a `manifest.json` (fresh from the script, or one you exported earlier) |
-| **Manifest** | Slide-over panel: source folder, progress per column, breakdown by state, which returns the intake script flagged (and whether you've since fixed them), and a *Clear saved session* button |
+| **Manifest** | The go-to overview: source folder, progress per column, a **Needs attention** list of every open-issue return and which step flagged it, an **Aging** list of the not-yet-qualified returns sitting longest since date received, **Intake volume** by date received, breakdown by state, a **custom number column's** total/average/state split and a **breakdown by any custom text column** you've added (e.g. Preparer), which returns the intake script flagged (and whether you've since fixed them), and a *Clear saved session* button |
 | **Export Excel** | A real `.xlsx` workbook — see below |
 | **Export JSON** | Your save file. `Ctrl+S` does the same |
 | **Export CSV** | Plain CSV, UTF-8 BOM + CRLF, for when you just want raw text |
@@ -291,7 +291,7 @@ the file.
 
 | Type | The cell is | Counts towards |
 |---|---|---|
-| **Yes / No / Issue** | the original click-or-`Y`/`N`/`I` cell | *qualified*, and the per-step progress bars |
+| **Yes / No / Issue** | the original click-or-`Y`/`N`/`I` cell | *qualified* (only the `Qualifying` column), and the per-step progress bars |
 | **Number** | a numeric box — decimals and negatives fine | totalled, averaged and given a range in the Excel summary |
 | **Text** | anything you can type | nothing; it's data you're keeping, not progress |
 
@@ -300,9 +300,10 @@ existed looks like — is a yes/no/issue column, so **old files open unchanged.*
 
 Things worth knowing:
 
-- **A data column can't stop a return being qualified.** *Qualified* still means
-  "every yes/no/issue step is yes", so adding a Refund-amount column doesn't
-  un-finish work you'd already done.
+- **Qualified is decided by the `Qualifying` step alone**, not by every status
+  column. Adding a Refund-amount column, or even a new custom yes/no/issue
+  column, never un-finishes work you'd already done — only marking `Qualifying`
+  itself changes qualification.
 - **% complete counts both**: a step marked yes, or a data cell with something in
   it, over every cell. So a finished return with one empty number column reads
   slightly under 100%, which is the honest answer to "is there anything left to

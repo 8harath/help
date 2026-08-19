@@ -1983,7 +1983,7 @@ var DEFAULT_FLAGS = [
    keep opening unchanged. */
 
 var COL_TYPES = {
-  status: { label:"Yes / No / Issue", hint:"The tracker default. Click or press Y, N, I. Counts towards qualified and % complete.", def:0 },
+  status: { label:"Yes / No / Issue", hint:"The tracker default. Click or press Y, N, I. Counts towards % complete; only the Qualifying step decides qualified.", def:0 },
   number: { label:"Number",           hint:"Digits only, decimals and negatives allowed. Totalled and averaged in the Excel summary.", def:90 },
   text:   { label:"Text",             hint:"Anything you can type. Free notes, reference codes, names.", def:160 }
 };
@@ -2486,10 +2486,19 @@ function tally(ret) {
   return c;
 }
 
-/* Qualified is still "every step is yes". A tracker with no status columns left
-   in it has nothing to qualify, so `n > 0` — otherwise `0 === 0` would mark
-   every single return complete the moment the last step column was removed. */
-function isDone(ret)  { var t = tally(ret); return t.n > 0 && t.yes === t.n; }
+/* Qualified is a business determination, not "every step done": only the
+   Qualifying step has to be Yes. The other seven are the internal filing
+   checklist (attachments, data, XML, batch, recon, TFR) and are tracked in
+   their own right — see hasIssue() and the per-step progress bars — but they
+   do not gate "Qualified", and neither does any custom column added later.
+   Falls back to the old all-status-yes rule only if a manifest genuinely has
+   no "qualifying" column (e.g. it was renamed away in a hand-edited file). */
+function isDone(ret) {
+  var qf = flagByKey("qualifying");
+  if (qf && flagType(qf) === "status") { return flagOf(ret, "qualifying") === "yes"; }
+  var t = tally(ret);
+  return t.n > 0 && t.yes === t.n;
+}
 function hasIssue(ret) { return tally(ret).issue > 0; }
 
 /* Not started means you have not touched the row at all — no step marked and no
@@ -3193,7 +3202,7 @@ function renderPills() {
   }
   el.pills.innerHTML =
     pill("all", "", total, "returns", "Show all returns") +
-    pill("done", "ok", done, "qualified", "Show returns with every yes/no/issue step marked yes") +
+    pill("done", "ok", done, "qualified", "Show returns with the Qualifying step marked yes") +
     pill("issue", "warn", issues, "issues", "Show returns with one or more issues") +
     pill("none", "", fresh, "untouched", "Show returns with no step marked and no data typed") +
     (nostate ? pill("nostate", "warn", nostate, "no state", "Show returns that need a state") : "") +
@@ -4289,6 +4298,18 @@ function tidyNumber(n) {
   return String(Math.round(n * 1000) / 1000);
 }
 
+/* Whole days between date_received and now, in local time — todayISO() writes
+   date_received the same way, so midnight-to-midnight here lines up with what
+   it wrote. null for anything missing or unparsable, never a guess. */
+function daysSince(dateStr) {
+  if (!dateStr) { return null; }
+  var d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d.getTime())) { return null; }
+  var today = new Date();
+  today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.round((today.getTime() - d.getTime()) / 86400000);
+}
+
 function openManifest() {
   closeSheet();
   var totalReturns = manifest.returns.length;
@@ -4422,6 +4443,156 @@ function openManifest() {
            '<td class="n">' + s.n + '</td><td class="n">' + s.done + '</td><td class="n">' + s.issue + "</td></tr>";
   }).join("");
 
+  /* Aging — how long the not-yet-qualified returns have been sitting, and
+     which ones the longest, so there is a "what to pick up next" answer
+     instead of just a percentage. Uses date_received, already on every
+     return; nothing new has to be typed in for this to work. */
+  var AGING_LIMIT = 8;
+  var openReturns = manifest.returns.filter(function (r) { return !isDone(r); });
+  var agedOpen = openReturns.map(function (r) {
+    return { r: r, age: daysSince(r.date_received) };
+  }).filter(function (x) { return x.age !== null; });
+  var avgAge = agedOpen.length
+    ? Math.round(agedOpen.reduce(function (sum, x) { return sum + x.age; }, 0) / agedOpen.length)
+    : null;
+  var oldestOpen = agedOpen.slice().sort(function (a, b) { return b.age - a.age; }).slice(0, AGING_LIMIT);
+
+  var agingHtml = !manifest.returns.length
+    ? '<div style="color:var(--ink-3);font-size:11px;">No returns loaded.</div>'
+    : !openReturns.length
+      ? '<div style="color:var(--ink-3);font-size:11px;">Everything is qualified — nothing open to age.</div>'
+      : !agedOpen.length
+        ? '<div style="color:var(--ink-3);font-size:11px;">No received dates on the open returns yet.</div>'
+        : '<div class="analytics-kpis" style="margin-bottom:8px;">' +
+            '<div class="analytics-kpi"><strong>' + avgAge + '</strong><span>Avg days open</span></div>' +
+            '<div class="analytics-kpi"><strong>' + openReturns.length + '</strong><span>Not yet qualified</span></div>' +
+          "</div>" +
+          oldestOpen.map(function (x) {
+            return '<div class="flagrow clickable-return" data-ret-id="' + esc(x.r.id) +
+                   '" style="cursor:pointer;" title="Jump to return"><span class="fn">' + esc(x.r.id) +
+                   (x.r.state_code ? " (" + esc(x.r.state_code) + ")" : "") + "</span>" +
+                   '<span class="tag">' + x.age + " day" + (x.age === 1 ? "" : "s") + "</span></div>";
+          }).join("");
+
+  /* Breakdown by any custom text column — e.g. a "Preparer" column added via
+     View -> Add a column shows up here the same way state does, with no code
+     specific to what that column happens to be named. Nothing to add if no
+     such column exists yet. */
+  var customBreakdownHtml = getFlags().filter(function (f) {
+    return f.custom && flagType(f) === "text";
+  }).map(function (f) {
+    var byVal = {};
+    manifest.returns.forEach(function (r) {
+      var v = typedValue(r, f);
+      var k = isBlankValue(v) ? "(unassigned)" : String(v);
+      if (!byVal[k]) { byVal[k] = { n:0, done:0, issue:0 }; }
+      byVal[k].n++;
+      if (isDone(r)) { byVal[k].done++; }
+      if (hasIssue(r)) { byVal[k].issue++; }
+    });
+    var label = f.label || f.short || f.key;
+    var rowsHtml = Object.keys(byVal).sort(function (a, b) {
+      return byVal[b].n - byVal[a].n || a.localeCompare(b);
+    }).map(function (k) {
+      var s = byVal[k];
+      return "<tr><td>" + esc(k) + '</td><td class="n">' + s.n + '</td><td class="n">' + s.done +
+             '</td><td class="n">' + s.issue + "</td></tr>";
+    }).join("");
+    return '<div class="sect"><div class="micro">Breakdown by ' + esc(label) + '</div><table class="mini">' +
+           "<thead><tr><th>" + esc(label) + "</th><th>Returns</th><th>Qualified</th><th>Issues</th></tr></thead>" +
+           "<tbody>" + rowsHtml + "</tbody></table></div>";
+  }).join("");
+
+  /* Needs attention — every return with an issue on some step, listed by
+     return with which step(s) flagged it, instead of a bare count you cannot
+     act on. Capped so one bad batch cannot turn this into an endless list;
+     the "issues" pill still shows everything if there is more. */
+  var ATTENTION_LIMIT = 20;
+  var issueReturns = manifest.returns.filter(function (r) { return hasIssue(r); });
+  var attentionHtml = !issueReturns.length
+    ? '<div style="color:var(--ink-3);font-size:11px;">No open issues right now.</div>'
+    : issueReturns.slice(0, ATTENTION_LIMIT).map(function (r) {
+        var steps = statusFlags().filter(function (f) { return flagOf(r, f.key) === "issue"; })
+          .map(function (f) { return f.label || f.short || f.key; }).join(", ");
+        return '<div class="flagrow clickable-return" data-ret-id="' + esc(r.id) +
+               '" style="cursor:pointer;" title="Jump to return"><span class="fn">' + esc(r.id) +
+               (r.state_code ? " (" + esc(r.state_code) + ")" : "") + "</span>" +
+               '<span class="tag open">' + esc(steps || "Issue") + "</span></div>";
+      }).join("") +
+      (issueReturns.length > ATTENTION_LIMIT
+        ? '<div style="color:var(--ink-3);font-size:11px;padding-top:4px;">+' +
+          (issueReturns.length - ATTENTION_LIMIT) + ' more — use the <b>issues</b> pill to see the rest.</div>'
+        : "");
+
+  /* Custom number columns get their own summary — the total, average and
+     range already exist in stepStats() for the per-step bar's small note;
+     this gives them a prominent card plus a per-state split, the way a
+     Refund-amount column would want to be read at a glance. */
+  var numberSummaryHtml = allStepStats.filter(function (s) {
+    return s.type === "number";
+  }).map(function (s) {
+    var f = flagByKey(s.key);
+    var byNumState = {};
+    manifest.returns.forEach(function (r) {
+      var v = typedValue(r, f);
+      if (isBlankValue(v)) { return; }
+      var k = r.state_code || "—";
+      if (!byNumState[k]) { byNumState[k] = { n:0, sum:0 }; }
+      byNumState[k].n++;
+      byNumState[k].sum += v;
+    });
+    var stateRows = Object.keys(byNumState).sort(function (a, b) {
+      return byNumState[b].n - byNumState[a].n || a.localeCompare(b);
+    }).map(function (k) {
+      var st = byNumState[k];
+      return "<tr><td>" + (k === "—" ? "No state" : esc(k)) + '</td><td class="n">' + st.n +
+             '</td><td class="n">' + esc(tidyNumber(st.sum)) + '</td><td class="n">' +
+             esc(tidyNumber(st.sum / st.n)) + "</td></tr>";
+    }).join("");
+    return '<div class="sect"><div class="micro">' + esc(s.label) + '</div>' +
+           '<div class="analytics-kpis" style="margin-bottom:8px;">' +
+             '<div class="analytics-kpi"><strong>' + esc(tidyNumber(s.sum)) + '</strong><span>Total</span></div>' +
+             '<div class="analytics-kpi"><strong>' + esc(tidyNumber(s.avg)) + '</strong><span>Average</span></div>' +
+             '<div class="analytics-kpi"><strong>' + s.filled + "/" + manifest.returns.length +
+               '</strong><span>Filled</span></div>' +
+           "</div>" +
+           (Object.keys(byNumState).length > 1
+             ? '<table class="mini"><thead><tr><th>State</th><th>Filled</th><th>Total</th><th>Average</th></tr></thead>' +
+               "<tbody>" + stateRows + "</tbody></table>"
+             : "") +
+         "</div>";
+  }).join("");
+
+  /* Intake volume by date received — is the batch still arriving or has it
+     stalled, and which day had the most come in. Capped to the most recent
+     VOLUME_LIMIT distinct days so a folder spanning months does not turn
+     into an endless list; the note says how many are hidden rather than
+     silently dropping them. */
+  var VOLUME_LIMIT = 30;
+  var byDate = {};
+  manifest.returns.forEach(function (r) {
+    if (!r.date_received) { return; }
+    byDate[r.date_received] = (byDate[r.date_received] || 0) + 1;
+  });
+  var dateKeys = Object.keys(byDate).sort();
+  var shownDates = dateKeys.slice(-VOLUME_LIMIT);
+  var maxDay = shownDates.reduce(function (m, k) { return Math.max(m, byDate[k]); }, 1);
+
+  var volumeHtml = !dateKeys.length
+    ? '<div style="color:var(--ink-3);font-size:11px;">No received dates yet.</div>'
+    : (dateKeys.length > shownDates.length
+        ? '<div style="color:var(--ink-3);font-size:11px;padding-bottom:4px;">Showing the most recent ' +
+          shownDates.length + " of " + dateKeys.length + " days with returns.</div>"
+        : "") +
+      shownDates.map(function (k) {
+        var n = byDate[k];
+        return '<div class="state-chart-row" title="' + n + ' received ' + esc(k) + '">' +
+          '<span class="state-chart-code">' + esc(k) + '</span>' +
+          '<span class="state-chart-track"><i style="width:' + Math.round((n / maxDay) * 100) +
+          '%;background:var(--focus)"></i></span>' +
+          '<span class="state-chart-meta">' + n + "</span></div>";
+      }).join("");
+
   var scrim = document.createElement("div");
   scrim.className = "scrim";
 
@@ -4439,6 +4610,10 @@ function openManifest() {
         "<dt>Returns</dt><dd>" + manifest.returns.length + "</dd>" +
         "<dt>Unexported</dt><dd>" + dirty + " edit" + (dirty === 1 ? "" : "s") + "</dd>" +
       "</dl></div>" +
+      '<div class="sect"><div class="micro">Needs attention · open issues</div>' + attentionHtml + "</div>" +
+      '<div class="sect"><div class="micro">Aging · oldest not yet qualified</div>' + agingHtml + "</div>" +
+      '<div class="sect"><div class="micro">Intake volume · by date received</div>' +
+        '<div class="analytics-card"><div class="state-chart">' + volumeHtml + "</div></div></div>" +
       '<div class="sect"><div class="micro">Progress by step</div><div class="steps">' + stepsHtml + "</div></div>" +
       '<div class="sect"><div class="micro">State performance · top by volume</div>' +
         '<div class="analytics-card"><div class="state-chart">' + stateChartHtml + "</div>" +
@@ -4447,6 +4622,8 @@ function openManifest() {
       '<div class="sect"><div class="micro">State detail</div><table class="mini">' +
         "<thead><tr><th>State</th><th>Returns</th><th>Done</th><th>Issues</th></tr></thead>" +
         "<tbody>" + statesHtml + "</tbody></table></div>" +
+      numberSummaryHtml +
+      customBreakdownHtml +
       '<div class="sect"><div class="micro">Flagged by intake</div><div class="flaglist">' + flaggedHtml + "</div></div>" +
     "</div>" +
     '<footer>' +
@@ -4463,6 +4640,18 @@ function openManifest() {
 
   scrim.addEventListener("click", closeSheet);
   node.addEventListener("click", function (ev) {
+    var jump = ev.target.closest(".clickable-return");
+    if (jump) {
+      var retId = jump.getAttribute("data-ret-id");
+      closeSheet();
+      var tr = $("table").querySelector('tr[data-id="' + CSS.escape(retId) + '"]');
+      if (tr) {
+        tr.scrollIntoView({ block: "center", behavior: "smooth" });
+        tr.classList.add("flash");
+        setTimeout(function () { tr.classList.remove("flash"); }, 1500);
+      }
+      return;
+    }
     var row = ev.target.closest("[data-state]");
     if (row) {
       var code = row.getAttribute("data-state");
@@ -6507,9 +6696,14 @@ var HELP_FEATURES = [
     "to reset the search, state and progress filters together." },
 
   { title:"Manifest analytics", key:"Alt+M", body:
-    "The Manifest panel summarizes the entire CRM with qualification, issue and state-assignment KPIs; " +
-    "a workflow-health donut; status distribution; bottleneck and issue insights; step progress; and " +
-    "state-performance bars. Click a state bar or state-detail row to filter the CRM to that state." },
+    "The Manifest panel is the one place to see the whole CRM at a glance: qualification, issue and " +
+    "state-assignment KPIs; a workflow-health donut; status distribution; bottleneck and issue insights; " +
+    "a <b>Needs attention</b> list of every open-issue return and which step flagged it; an <b>Aging</b> " +
+    "list of the not-yet-qualified returns sitting longest since date received; <b>Intake volume</b> by " +
+    "date received, to see the pace returns are arriving; step progress; state-performance bars; and, " +
+    "if you've added one, a <b>custom number column's</b> total/average/state split and a <b>breakdown " +
+    "by any custom text column</b> (e.g. Preparer) with qualified and issue counts per value. Click a " +
+    "state bar, state-detail row, or any Needs-attention/Aging entry to filter or jump straight to it." },
 
   { title:"Alpha Export", body:
     "Writes <b>every CRM return</b> to a true offline Excel workbook with exactly three columns: " +
@@ -6525,8 +6719,9 @@ var HELP_FEATURES = [
 
   { title:"Three kinds of column", key:"Alt+V", body:
     "A column holds one of three things, and you pick which when you add it. " +
-    "<b>Yes / No / Issue</b> is the tracker default and is what counts towards <i>qualified</i> " +
-    "and the % complete. <b>Number</b> takes digits, and gets totalled, averaged and " +
+    "<b>Yes / No / Issue</b> is the tracker default and counts towards % complete — but " +
+    "<i>qualified</i> is decided by the built-in <b>Qualifying</b> step alone, so adding a new " +
+    "status column never un-qualifies a return. <b>Number</b> takes digits, and gets totalled, averaged and " +
     "given a range in the Excel summary. <b>Text</b> takes anything you can type. " +
     "You can change what an existing column holds — it tells you first how many values " +
     "cannot survive the change." },

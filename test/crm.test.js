@@ -508,13 +508,15 @@ test("a custom column is added once, keyed off its name, and reopens the tally",
   const keys = t.win.manifest.flags.map(function (f) { return f.key; });
   eq(new Set(keys).size, keys.length, "every flag key is unique");
 
-  /* The nine columns must be counted again — a return that qualified under eight
-     steps is not qualified under nine. */
+  /* The bug this guards: qualified used to mean "every status column is yes",
+     so adding any new status column un-qualified every return that already had
+     one. Qualified is decided by the Qualifying step alone, so a brand-new,
+     unset column changes nothing about it. */
   eq(t.win.manifest.returns[0].status_flags.custom_w_2_verified, null,
      "existing returns get the new step, unset");
-  eq(t.win.isDone(t.win.manifest.returns[0]), false, "R1 is no longer done");
-  eq(trs(t.doc)[0].className, "", "and the row stops being painted as done");
-  match(t.doc.getElementById("pills").textContent, /0qualified/, "the tally agrees");
+  ok(t.win.isDone(t.win.manifest.returns[0]), "R1 is still done — Qualifying is untouched");
+  eq(trs(t.doc)[0].className, "done", "and the row keeps being painted as done");
+  match(t.doc.getElementById("pills").textContent, /1qualified/, "the tally agrees");
 
   const box = addColumn("W-2 verified");
   match(box.querySelector('[data-ask="err"]').textContent, /already a column with that name/,
@@ -822,6 +824,153 @@ test("only status columns decide qualified, and % complete counts filled data ce
   t.win.invalidateTally();
   t.win.render();
   match(t.doc.getElementById("pills").textContent, /100%complete/, "filling it reaches 100%");
+});
+
+test("Qualifying alone decides qualified, not the other seven steps", function () {
+  const t = open();
+  t.win.adopt(fixture(1, { returns: [mkRet("R1", { status_flags: allYes() })] }), "manifest.json");
+
+  /* Every other step is still Yes here except Qualifying, which is No — the
+     real-world shape this guards: a return marked done on attachments, data,
+     XML, batch, recon and TFR, but not actually qualifying yet. */
+  t.win.manifest.returns[0].status_flags.qualifying = "no";
+  t.win.invalidateTally();
+  eq(t.win.isDone(t.win.manifest.returns[0]), false,
+     "six of seven other steps yes does not make it qualified without Qualifying");
+
+  /* And the reverse: only Qualifying is yes, nothing else touched at all. */
+  const fresh = { id: "R2", filename: "R2.pdf", folder: "R2", state_code: "CA",
+                  date_received: "2026-02-14", status_flags: { qualifying: "yes" }, remarks: "" };
+  ok(t.win.isDone(fresh), "Qualifying yes alone is enough, with every other step untouched");
+});
+
+function daysAgoISO(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  const pad = function (x) { return String(x).padStart(2, "0"); };
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+}
+
+test("the Manifest panel ages only open returns, oldest first, and a click jumps to the row", function () {
+  const t = open();
+  const r1 = mkRet("R1", { date_received: daysAgoISO(10) });
+  const r2 = mkRet("R2", { date_received: daysAgoISO(3) });
+  /* R3 is the oldest by date, but it is already qualified — aging is about
+     what still needs attention, so it must not appear here at all. */
+  const r3 = mkRet("R3", { date_received: daysAgoISO(30), status_flags: allYes() });
+  t.win.adopt({ assignment_folder: "Batch A", returns: [r1, r2, r3] }, "manifest.json");
+
+  t.win.openManifest();
+  const sects = Array.prototype.slice.call(t.doc.querySelectorAll(".manifest-sheet .sect"));
+  const aging = sects.filter(function (s) { return /Aging/.test(s.querySelector(".micro").textContent); })[0];
+  ok(aging, "an aging section renders");
+
+  const rows = Array.prototype.slice.call(aging.querySelectorAll(".clickable-return"));
+  deepEq(rows.map(function (r) { return r.getAttribute("data-ret-id"); }), ["R1", "R2"],
+         "only the open returns are listed, oldest first — R3 excluded despite being older");
+  match(aging.textContent, /10 days/, "R1's age in days is shown");
+  match(aging.textContent, /Avg days open/, "the average KPI is present");
+
+  click(rows[0]);
+  ok(t.doc.querySelector('#rows tr[data-id="R1"]').classList.contains("flash"),
+     "clicking an aged return closes the panel and flashes its row in the grid");
+});
+
+test("the Manifest panel breaks down qualified and issue counts by a custom text column", function () {
+  const t = open();
+  t.win.adopt(fixture(3), "manifest.json");
+  addCol(t.win, "custom_preparer", "text", "Preparer");
+  t.win.manifest.returns[0].status_flags.custom_preparer = "Jane";
+  t.win.manifest.returns[0].status_flags.qualifying = "yes";
+  t.win.manifest.returns[1].status_flags.custom_preparer = "Jane";
+  t.win.manifest.returns[2].status_flags.custom_preparer = "Sam";
+  t.win.invalidateTally();
+
+  t.win.openManifest();
+  const sects = Array.prototype.slice.call(t.doc.querySelectorAll(".manifest-sheet .sect"));
+  const breakdown = sects.filter(function (s) { return /Breakdown by Preparer/.test(s.querySelector(".micro").textContent); })[0];
+  ok(breakdown, "a breakdown section appears, named after the column");
+
+  const byName = {};
+  Array.prototype.slice.call(breakdown.querySelectorAll("tbody tr")).forEach(function (tr) {
+    const tds = tr.querySelectorAll("td");
+    byName[tds[0].textContent] = { n: tds[1].textContent, done: tds[2].textContent, issue: tds[3].textContent };
+  });
+  eq(byName.Jane.n, "2", "two returns under Jane");
+  eq(byName.Jane.done, "1", "one of Jane's two is qualified");
+  eq(byName.Sam.n, "1", "one return under Sam");
+});
+
+test("the breakdown section stays out of the way when there is no custom text column", function () {
+  const t = open();
+  t.win.adopt(fixture(2), "manifest.json");
+  t.win.openManifest();
+  noMatch(t.doc.querySelector(".manifest-sheet").textContent, /Breakdown by/,
+          "nothing to break down without a custom text column");
+});
+
+test("needs attention lists every open-issue return with which step flagged it, and jumps on click", function () {
+  const t = open();
+  const r1 = mkRet("R1", { status_flags: { attachments_present: "issue" } });
+  const r2 = mkRet("R2", { status_flags: { xml_flowing: "issue", recon_checked: "issue" } });
+  const r3 = mkRet("R3", { status_flags: allYes() });
+  t.win.adopt({ assignment_folder: "Batch A", returns: [r1, r2, r3] }, "manifest.json");
+
+  t.win.openManifest();
+  const sects = Array.prototype.slice.call(t.doc.querySelectorAll(".manifest-sheet .sect"));
+  const attn = sects.filter(function (s) { return /Needs attention/.test(s.querySelector(".micro").textContent); })[0];
+  ok(attn, "a needs-attention section renders");
+
+  const rows = Array.prototype.slice.call(attn.querySelectorAll(".clickable-return"));
+  deepEq(rows.map(function (r) { return r.getAttribute("data-ret-id"); }), ["R1", "R2"],
+         "only the returns with an issue are listed, R3 excluded");
+  match(rows[0].textContent, /Attachments present/, "which step is flagged is shown");
+  match(rows[1].textContent, /XML flowing/, "and more than one flagged step is listed together");
+
+  click(rows[0]);
+  ok(t.doc.querySelector('#rows tr[data-id="R1"]').classList.contains("flash"),
+     "clicking jumps to and flashes the row, same as aging");
+});
+
+test("a custom number column gets a total/average card with a per-state split", function () {
+  const t = open();
+  t.win.adopt(fixture(3), "manifest.json");
+  addCol(t.win, "custom_refund", "number", "Refund amount");
+  t.win.manifest.returns[0].status_flags.custom_refund = 100;
+  t.win.manifest.returns[0].state_code = "CA";
+  t.win.manifest.returns[1].status_flags.custom_refund = 300;
+  t.win.manifest.returns[1].state_code = "NY";
+  t.win.invalidateTally();
+
+  t.win.openManifest();
+  const sects = Array.prototype.slice.call(t.doc.querySelectorAll(".manifest-sheet .sect"));
+  const card = sects.filter(function (s) { return /Refund amount/.test(s.querySelector(".micro").textContent); })[0];
+  ok(card, "a summary card appears for the custom number column");
+  match(card.textContent, /400/, "the total across both filled cells");
+  match(card.textContent, /200/, "the average of 100 and 300");
+  match(card.textContent, /2\/3/, "filled count out of all returns");
+
+  const stateRows = Array.prototype.slice.call(card.querySelectorAll("table tbody tr"));
+  eq(stateRows.length, 2, "one row per state that has a value");
+});
+
+test("intake volume buckets returns by date received, earliest first", function () {
+  const t = open();
+  const r1 = mkRet("R1", { date_received: "2026-02-10" });
+  const r2 = mkRet("R2", { date_received: "2026-02-10" });
+  const r3 = mkRet("R3", { date_received: "2026-02-12" });
+  t.win.adopt({ assignment_folder: "Batch A", returns: [r1, r2, r3] }, "manifest.json");
+
+  t.win.openManifest();
+  const sects = Array.prototype.slice.call(t.doc.querySelectorAll(".manifest-sheet .sect"));
+  const vol = sects.filter(function (s) { return /Intake volume/.test(s.querySelector(".micro").textContent); })[0];
+  ok(vol, "an intake volume section renders");
+
+  const rows = Array.prototype.slice.call(vol.querySelectorAll(".state-chart-row"));
+  eq(rows.length, 2, "one row per distinct date");
+  match(rows[0].textContent, /2026-02-10/, "earliest date sorts first");
+  match(rows[0].querySelector(".state-chart-meta").textContent, /2/, "two returns landed on the 10th");
+  match(rows[1].querySelector(".state-chart-meta").textContent, /1/, "one on the 12th");
 });
 
 test("a row with only data typed is started, and a tracker with no steps is never done", function () {
