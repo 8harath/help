@@ -4368,6 +4368,10 @@ function renderCommandResults(query) {
   }).join("");
 
   el.cmdResults.innerHTML = html;
+  var activeEl = el.cmdResults.querySelector(".cmd-item.active");
+  if (activeEl && activeEl.scrollIntoView) {
+    activeEl.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
 }
 
 function executeSelectedCommand() {
