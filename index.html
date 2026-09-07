@@ -4964,6 +4964,7 @@ function openManifest() {
           '<button class="solid micro" data-act="export-delta" style="background:#dc2626; color:#fff; border:1px solid #b91c1c; font-weight:700; padding:6px 10px;" title="Export complete historical master database (delta.json)">△ Master Delta JSON (delta.json)</button>' +
           '<button class="solid micro" data-act="export-session" style="background:var(--panel); color:var(--ink); border:1px solid var(--hair); font-weight:600; padding:6px 10px;" title="Export returns qualified/active for selected session date">📅 Session JSON</button>' +
           '<button class="solid micro" data-act="csv" style="background:var(--panel); color:var(--ink); border:1px solid var(--hair); font-weight:600; padding:6px 10px;" title="Export comma-separated values file">📄 CSV</button>' +
+          '<button class="solid micro" data-act="load-delta-modal" style="background:var(--panel); color:var(--yes-ink); border:1px solid var(--yes-ink); font-weight:700; padding:6px 10px;" title="Merge an existing historical master delta.json file into active memory">△ Merge Master Delta File</button>' +
         '</div>' +
       '</div>' +
       '<div class="sect" style="margin-bottom:16px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">' +
@@ -5047,6 +5048,7 @@ function openManifest() {
     if (act === "json" || act === "export-delta") { exportDeltaJson(); }
     if (act === "export-session") { exportSessionJson(); }
     if (act === "csv")    { exportCsv(); }
+    if (act === "load-delta-modal") { closeSheet(); if (el.deltaFileInput) el.deltaFileInput.click(); }
     if (act === "forget") {
       try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
       ev.target.textContent = "Cleared";
