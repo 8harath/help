@@ -1660,37 +1660,53 @@ body.shortcuts-off #keyhints { display: none; }
 </div>
 
 <div id="addRowScrim" class="scrim hidden"></div>
-<div id="addRowModal" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="addRowTitle" style="width: 400px; height: auto; top: 12%; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(0,0,0,0.25); z-index: 45;">
+<div id="addRowModal" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="addRowTitle" style="width: 440px; height: auto; top: 8%; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(0,0,0,0.25); z-index: 45;">
   <header style="border-radius: 12px 12px 0 0;">
-    <span id="addRowTitle" style="font-weight:700;">➕ Add New Return Row</span>
+    <span id="addRowTitle" style="font-weight:700;">➕ Add New Return or Fund</span>
     <div class="grow"></div>
     <button id="closeAddRowBtn" class="ghost">✕</button>
   </header>
   <div class="body" style="display:flex; flex-direction:column; gap:12px; padding:16px;">
     <div>
-      <label class="micro" style="display:block; margin-bottom:4px;">Return / ID Name *</label>
-      <input type="text" id="newRowId" placeholder="e.g. Return-14, 1040-CA-001" style="width:100%; padding:6px 9px; border:1px solid var(--hair); border-radius:6px; font-size:12.5px;">
+      <label class="micro" style="display:block; margin-bottom:4px;">Return or Fund Name *</label>
+      <input type="text" id="newRowId" placeholder="e.g. Fund A, Return-14, 1040-CA-001" style="width:100%; padding:6px 9px; border:1px solid var(--hair); border-radius:6px; font-size:12.5px;">
     </div>
     <div>
-      <label class="micro" style="display:block; margin-bottom:4px;">State Code</label>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <label class="micro">State / Jurisdiction</label>
+        <button id="toggleMultiStateBtn" type="button" class="ghost micro" style="padding:2px 6px;" title="Select multiple jurisdictions at once">🌐 Multi-State Picker</button>
+      </div>
       <select id="newRowState" style="width:100%; padding:6px 9px; border:1px solid var(--hair); border-radius:6px; font-size:12.5px;">
         <option value="">(No State Assigned)</option>
         <option value="FED">FED · Federal</option>
       </select>
+      <div id="multiStateBox" class="hidden" style="margin-top:6px; border:1px solid var(--hair); border-radius:6px; padding:8px; background:var(--paper); max-height:180px; overflow-y:auto;">
+        <div style="margin-bottom:6px;">
+          <input type="text" id="multiStateSearch" placeholder="Type short form to jump (e.g. NYS, NYC, TX, CA)..." style="width:100%; padding:4px 8px; font-size:12px; border:1px solid var(--hair); border-radius:4px; background:var(--panel); color:var(--ink);" title="Type state short form to highlight and scroll to it">
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; border-bottom:1px solid var(--line); padding-bottom:4px;">
+          <button id="selectAllStatesBtn" type="button" class="ghost micro" style="padding:2px 6px;">Select All</button>
+          <button id="clearAllStatesBtn" type="button" class="ghost micro" style="padding:2px 6px;">Clear</button>
+          <span id="multiStateCount" class="micro" style="margin-left:auto; color:var(--ink-2);">0 selected</span>
+        </div>
+        <div id="multiStateGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; font-size:11px;">
+        </div>
+      </div>
     </div>
     <div>
       <label class="micro" style="display:block; margin-bottom:4px;">Date Received</label>
       <input type="date" id="newRowDate" style="width:100%; padding:6px 9px; border:1px solid var(--hair); border-radius:6px; font-size:12.5px;">
     </div>
     <div>
-      <label class="micro" style="display:block; margin-bottom:4px;">Initial Remarks</label>
-      <input type="text" id="newRowRemarks" placeholder="Optional notes or remarks…" style="width:100%; padding:6px 9px; border:1px solid var(--hair); border-radius:6px; font-size:12.5px;">
+      <label class="micro" style="display:block; margin-bottom:4px;">Remarks / Notes (optional)</label>
+      <input type="text" id="newRowRemarks" placeholder="Optional initial remarks" style="width:100%; padding:6px 9px; border:1px solid var(--hair); border-radius:6px; font-size:12.5px;">
     </div>
-    <div id="newRowErr" class="err" role="alert"></div>
+    <div id="newRowErr" style="color:var(--no-ink); font-size:12px; font-weight:600;"></div>
   </div>
-  <footer style="border-radius: 0 0 12px 12px; justify-content: flex-end;">
+  <footer style="border-radius: 0 0 12px 12px;">
     <button id="cancelAddRowBtn" class="ghost">Cancel</button>
-    <button id="submitAddRowBtn" class="solid">Create Row</button>
+    <div class="grow"></div>
+    <button id="submitAddRowBtn" class="solid" style="background:#2f6feb; border-color:#2f6feb;">Add Return Row(s)</button>
   </footer>
 </div>
 
@@ -2192,6 +2208,10 @@ var el = {
   submitAddRowBtn: $("submitAddRowBtn"), newRowId: $("newRowId"),
   newRowState: $("newRowState"), newRowDate: $("newRowDate"), newRowRemarks: $("newRowRemarks"),
   newRowErr: $("newRowErr"),
+  toggleMultiStateBtn: $("toggleMultiStateBtn"), multiStateBox: $("multiStateBox"),
+  multiStateSearch: $("multiStateSearch"), selectAllStatesBtn: $("selectAllStatesBtn"),
+  clearAllStatesBtn: $("clearAllStatesBtn"), multiStateCount: $("multiStateCount"),
+  multiStateGrid: $("multiStateGrid"),
   notepad: $("notepad"), npText: $("npText"), npClose: $("npClose"), npStamp: $("npStamp"),
   npDivider: $("npDivider"), npCopyAll: $("npCopyAll"), npWrap: $("npWrap"), npSnips: $("npSnips"),
   npSide: $("npSide"), npSnipList: $("npSnipList"),
@@ -5717,7 +5737,7 @@ function autoResumeSession() {
   }
 }
 
-/* Add Row Modal Functions */
+/* Add Row Modal & Multi-State Jurisdiction Functions */
 function openAddRowModal() {
   if (el.newRowState) {
     el.newRowState.innerHTML = '<option value="">(No State Assigned)</option>' +
@@ -5725,14 +5745,15 @@ function openAddRowModal() {
         return '<option value="' + c + '">' + c + " · " + esc(STATES[c]) + "</option>";
       }).join("");
   }
+  populateMultiStateGrid();
+  if (el.multiStateBox) { el.multiStateBox.classList.add("hidden"); }
   if (el.newRowDate) { el.newRowDate.value = todayISO(); }
   if (el.newRowId) {
-    /* length + 1 collides with an existing row as soon as anything was deleted */
     var nextNum = (manifest && manifest.returns) ? manifest.returns.length + 1 : 1;
-    var candidate = "Return-" + nextNum;
+    var candidate = "Fund-" + nextNum;
     while (manifest && manifest.returns.some(function (r) { return r.id === candidate; })) {
       nextNum++;
-      candidate = "Return-" + nextNum;
+      candidate = "Fund-" + nextNum;
     }
     el.newRowId.value = candidate;
   }
@@ -5741,6 +5762,51 @@ function openAddRowModal() {
   if (el.addRowScrim) el.addRowScrim.classList.remove("hidden");
   if (el.addRowModal) el.addRowModal.classList.remove("hidden");
   if (el.newRowId) el.newRowId.focus();
+}
+
+function populateMultiStateGrid() {
+  if (!el.multiStateGrid) return;
+  var codes = ["FED"].concat(STATE_CODES);
+  el.multiStateGrid.innerHTML = codes.map(function (c) {
+    var label = c === "FED" ? "FED" : c;
+    return '<label data-code="' + c + '" style="display:flex; align-items:center; gap:3px; cursor:pointer; padding:3px 5px; border-radius:4px; transition:background 0.15s, outline 0.15s;" title="' + esc(STATES[c] || c) + '">' +
+           '<input type="checkbox" class="multi-state-chk" value="' + c + '"> ' + label + '</label>';
+  }).join("");
+  updateMultiStateCount();
+}
+
+function jumpToMultiState(query) {
+  if (!el.multiStateGrid) return null;
+  var q = (query || "").trim().toUpperCase();
+  var labels = el.multiStateGrid.querySelectorAll("label[data-code]");
+  var firstMatch = null;
+
+  for (var i = 0; i < labels.length; i++) {
+    var lbl = labels[i];
+    var code = lbl.getAttribute("data-code") || "";
+    var fullName = (STATES[code] || "").toUpperCase();
+
+    var isMatch = q && (code.startsWith(q) || code.indexOf(q) !== -1 || fullName.indexOf(q) !== -1);
+    if (isMatch) {
+      lbl.style.background = "var(--accent-glow, rgba(0,120,212,0.2))";
+      lbl.style.outline = "1px solid var(--focus)";
+      if (!firstMatch) firstMatch = lbl;
+    } else {
+      lbl.style.background = "transparent";
+      lbl.style.outline = "none";
+    }
+  }
+
+  if (firstMatch && el.multiStateBox) {
+    firstMatch.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  return firstMatch;
+}
+
+function updateMultiStateCount() {
+  if (!el.multiStateGrid || !el.multiStateCount) return;
+  var chks = el.multiStateGrid.querySelectorAll(".multi-state-chk:checked");
+  el.multiStateCount.textContent = chks.length + " selected";
 }
 
 function closeAddRowModal() {
@@ -5757,38 +5823,75 @@ function createNewRow() {
   }
 
   if (el.newRowErr) { el.newRowErr.textContent = ""; }
-  if (!idVal) { fail("Give the return a name."); return; }
-
-  /* Two rows with the same id break row lookup, jump-to-return and the folder
-     mapping back to disk. */
-  if (manifest && manifest.returns.some(function (r) { return r.id === idVal; })) {
-    fail('"' + idVal + '" already exists — pick a different name.');
-    return;
-  }
+  if (!idVal) { fail("Give the return or fund a name."); return; }
 
   if (!manifest) {
     adopt({ assignment_folder: "Custom Intake Batch", returns: [] }, "custom intake");
   }
 
-  var stateCode = el.newRowState ? el.newRowState.value : "";
-  var newRet = {
-    id: idVal,
-    filename: idVal + ".pdf",
-    folder: idVal,
-    state_code: stateCode || null,
-    state_name: stateCode && STATES[stateCode] ? STATES[stateCode] : null,
-    date_received: (el.newRowDate && el.newRowDate.value) ? el.newRowDate.value : todayISO(),
-    status_flags: {},
-    remarks: el.newRowRemarks ? el.newRowRemarks.value.trim() : ""
-  };
-  getFlags().forEach(function (f) { newRet.status_flags[f.key] = emptyValueFor(flagType(f)); });
+  var selectedMulti = [];
+  if (el.multiStateGrid) {
+    var checkedBoxes = el.multiStateGrid.querySelectorAll(".multi-state-chk:checked");
+    for (var i = 0; i < checkedBoxes.length; i++) {
+      selectedMulti.push(checkedBoxes[i].value);
+    }
+  }
 
-  manifest.returns.push(newRet);
-  pushUndo({ kind:"addrow", ret:newRet });
+  var stateCodesToCreate = [];
+  if (selectedMulti.length > 0) {
+    stateCodesToCreate = selectedMulti;
+  } else {
+    var singleState = el.newRowState ? el.newRowState.value : "";
+    stateCodesToCreate = [singleState];
+  }
+
+  if (stateCodesToCreate.length === 1 && !stateCodesToCreate[0]) {
+    if (manifest.returns.some(function (r) { return r.id === idVal; })) {
+      fail('"' + idVal + '" already exists — pick a different name.');
+      return;
+    }
+  }
+
+  var newReturns = [];
+  var dateRec = (el.newRowDate && el.newRowDate.value) ? el.newRowDate.value : todayISO();
+  var remarksVal = el.newRowRemarks ? el.newRowRemarks.value.trim() : "";
+  var flags = getFlags();
+
+  stateCodesToCreate.forEach(function (sc) {
+    var rowId = idVal;
+    if (stateCodesToCreate.length > 1 || manifest.returns.some(function (r) { return r.id === rowId; })) {
+      if (sc && rowId.toUpperCase().indexOf("-" + sc) === -1) {
+        rowId = idVal + " - " + sc;
+      }
+    }
+    var counter = 1;
+    var baseRowId = rowId;
+    while (manifest.returns.some(function (r) { return r.id === rowId; })) {
+      rowId = baseRowId + "_" + counter;
+      counter++;
+    }
+
+    var newRet = {
+      id: rowId,
+      filename: rowId + ".pdf",
+      folder: rowId,
+      state_code: sc || null,
+      state_name: sc && STATES[sc] ? STATES[sc] : (sc === "FED" ? "Federal" : null),
+      date_received: dateRec,
+      last_worked: todayISO(),
+      status_flags: {},
+      remarks: remarksVal
+    };
+    flags.forEach(function (f) { newRet.status_flags[f.key] = emptyValueFor(flagType(f)); });
+    newReturns.push(newRet);
+  });
+
+  newReturns.forEach(function (r) { manifest.returns.push(r); });
+  pushUndo({ kind: "addrow", returns: newReturns, ret: newReturns[0] });
   closeAddRowModal();
-  buildStateFilter();      /* the new row can bring a state the filter has not seen */
+  buildStateFilter();
   render();
-  markDirty(1);
+  markDirty(newReturns.length);
   saveDraft();
   populateNoteReturnSelect();
 
@@ -6857,6 +6960,61 @@ function closeHelp() {
 }
 
 function toggleHelp() { if (helpOpen()) { closeHelp(); } else { openHelp(); } }
+
+if (el.addRowBtn) { el.addRowBtn.addEventListener("click", openAddRowModal); }
+if (el.emptyAddRowBtn) { el.emptyAddRowBtn.addEventListener("click", openAddRowModal); }
+if (el.closeAddRowBtn) { el.closeAddRowBtn.addEventListener("click", closeAddRowModal); }
+if (el.cancelAddRowBtn) { el.cancelAddRowBtn.addEventListener("click", closeAddRowModal); }
+if (el.addRowScrim) { el.addRowScrim.addEventListener("click", closeAddRowModal); }
+if (el.submitAddRowBtn) { el.submitAddRowBtn.addEventListener("click", createNewRow); }
+
+if (el.toggleMultiStateBtn) {
+  el.toggleMultiStateBtn.addEventListener("click", function () {
+    if (el.multiStateBox) {
+      el.multiStateBox.classList.toggle("hidden");
+      if (!el.multiStateBox.classList.contains("hidden") && el.multiStateSearch) {
+        el.multiStateSearch.focus();
+      }
+    }
+  });
+}
+if (el.multiStateSearch) {
+  el.multiStateSearch.addEventListener("input", function () {
+    jumpToMultiState(this.value);
+  });
+  el.multiStateSearch.addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      var topMatch = jumpToMultiState(this.value);
+      if (topMatch) {
+        var chk = topMatch.querySelector("input[type=checkbox]");
+        if (chk) {
+          chk.checked = !chk.checked;
+          updateMultiStateCount();
+        }
+      }
+    }
+  });
+}
+if (el.selectAllStatesBtn) {
+  el.selectAllStatesBtn.addEventListener("click", function () {
+    if (!el.multiStateGrid) return;
+    var chks = el.multiStateGrid.querySelectorAll(".multi-state-chk");
+    for (var i = 0; i < chks.length; i++) { chks[i].checked = true; }
+    updateMultiStateCount();
+  });
+}
+if (el.clearAllStatesBtn) {
+  el.clearAllStatesBtn.addEventListener("click", function () {
+    if (!el.multiStateGrid) return;
+    var chks = el.multiStateGrid.querySelectorAll(".multi-state-chk");
+    for (var i = 0; i < chks.length; i++) { chks[i].checked = false; }
+    updateMultiStateCount();
+  });
+}
+if (el.multiStateGrid) {
+  el.multiStateGrid.addEventListener("change", updateMultiStateCount);
+}
 
 if (el.helpBtn)    { el.helpBtn.addEventListener("click", toggleHelp); }
 if (el.helpClose)  { el.helpClose.addEventListener("click", closeHelp); }
