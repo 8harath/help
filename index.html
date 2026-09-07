@@ -1568,6 +1568,46 @@ body.dark .bulkbar { background: #1a2130; }
 body.dark .npsnip:hover { background: #20252a; }
 body.dark .helpkey { background: #192944; color: #9fc2ff; }
 
+/* ---- High-visibility △ Delta Button (Light & Dark Mode) ---- */
+#manifestBtn, .delta-btn {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid #b91c1c !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4) !important;
+  padding: 5px 13px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  cursor: pointer !important;
+  font-size: 12.5px !important;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease !important;
+}
+
+#manifestBtn:hover, .delta-btn:hover {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.55) !important;
+}
+
+#manifestBtn:active, .delta-btn:active {
+  transform: translateY(0) !important;
+}
+
+body.dark #manifestBtn, body.dark .delta-btn {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.55) !important;
+}
+
+body.dark #manifestBtn:hover, body.dark .delta-btn:hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
 .hidden { display: none !important; }
 body.resizing { cursor: col-resize; user-select: none; }
 
