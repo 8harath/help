@@ -1858,7 +1858,7 @@ test("exportAll triggers all exports at once", function () {
   t.win.exportSessionJson = function() { count++; };
   t.win.exportCsv = function() { count++; };
 
-  t.win.exportAll();
+  t.win.exportAll(true);
   eq(count, 5, "exportAll triggered all 5 export functions");
 });
 
@@ -1916,7 +1916,7 @@ test("exportDeltaJson and exportSessionJson function correctly and exportAll inc
 
   let exportsCount = 0;
   t.win.saveBlob = function () { exportsCount++; };
-  t.win.exportAll();
+  t.win.exportAll(true);
   eq(exportsCount, 5, "exportAll exports 5 files (xlsx, alpha, delta json, session json, csv)");
 });
 

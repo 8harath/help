@@ -1667,7 +1667,10 @@ body.shortcuts-off #keyhints { display: none; }
     <input type="file" id="fileInput" accept=".json,application/json" multiple>
     <button id="loadDeltaBtn" class="ghost" style="padding:4px 8px; font-weight:600;" title="Load historical master delta.json file">△ Load Master Delta</button>
     <input type="file" id="deltaFileInput" accept=".json,application/json" class="hidden">
-    <button id="manifestBtn" class="delta-btn" title="Open △ Delta dashboard (Analytics, Unified Exports, Settings)">△ Delta</button>
+  </div>
+  <div class="rule"></div>
+  <div class="group">
+    <button id="manifestBtn" class="delta-btn" title="Open △ Delta dashboard (Analytics, Unified &amp; Individual Exports, Settings)">△ Delta</button>
   </div>
   <div class="hidden">
     <button id="exportXlsx" disabled>Export Excel</button>
@@ -1704,7 +1707,6 @@ body.shortcuts-off #keyhints { display: none; }
   <button id="clearFiltersBtn" class="ghost clear-filters hidden" title="Clear search, state, status, and date filters (Alt+R)">✕ Clear filters</button>
   <button id="groupBtn" title="Cluster rows by state">Group by state</button>
   <button id="viewBtn" title="Columns, density and input options">View</button>
-  <button class="delta-btn" onclick="openManifest()" title="Open △ Delta dashboard (Analytics, Unified Exports, Settings)">△ Delta</button>
   <button id="linkFileBtn" title="Write every change straight into manifest.json on disk">Link file</button>
   <span id="autoSaveBadge" class="autosave-badge" title="Real-time local auto-save status">● Saved locally</span>
   <div class="pills" id="pills"></div>
@@ -4590,14 +4592,24 @@ function daysSince(dateStr) {
   return Math.round((today.getTime() - d.getTime()) / 86400000);
 }
 
-function exportAll() {
+function exportAll(sync) {
   if (!manifest) { return; }
-  exportXlsx();
-  exportAlpha();
-  exportDeltaJson();
-  exportSessionJson();
-  exportCsv();
-  toast("⚡ Exported All Formats (Excel, Alpha Excel, Master Delta JSON, Session JSON, CSV)");
+  var actions = [
+    function () { exportXlsx(); },
+    function () { exportAlpha(); },
+    function () { exportDeltaJson(); },
+    function () { exportSessionJson(); },
+    function () { exportCsv(); }
+  ];
+  if (sync) {
+    actions.forEach(function (fn) { fn(); });
+  } else {
+    actions.forEach(function (fn, idx) {
+      if (idx === 0) { fn(); }
+      else { setTimeout(fn, idx * 250); }
+    });
+  }
+  toast("⚡ Automatic downloads initiated for all 5 formats (Excel, Alpha, Delta JSON, Session JSON, CSV)");
 }
 
 function openManifest() {
@@ -4917,15 +4929,15 @@ function openManifest() {
       '<button class="ghost" data-act="close">✕ Close</button>' +
     '</header>' +
     '<div class="body" style="padding:16px;">' +
-      '<div class="sect" style="margin-bottom:16px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px;">' +
-        '<div class="micro" style="margin-bottom:6px; font-weight:700; color:var(--ink);">Unified Exports</div>' +
+      '<div class="sect" style="margin-bottom:16px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px;">' +
+        '<div class="micro" style="margin-bottom:8px; font-weight:700; color:var(--ink); font-size:11px;">Downloads &amp; Exports</div>' +
         '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">' +
-          '<button class="solid" data-act="export-all" style="background:var(--yes-ink); font-weight:700; padding:6px 12px;" title="Export Excel, Alpha Excel, Master Delta JSON, Session JSON and CSV in one action">⚡ Export All Formats</button>' +
-          '<button class="ghost micro" data-act="xlsx">Excel (.xlsx)</button>' +
-          '<button class="ghost micro" data-act="alpha">Alpha Excel</button>' +
-          '<button class="ghost micro" data-act="export-delta" style="color:var(--no-ink); font-weight:600;" title="Export master delta file containing all historical returns">△ Master Delta JSON</button>' +
-          '<button class="ghost micro" data-act="export-session" title="Export session JSON containing active date/view filtered returns">📅 Session JSON</button>' +
-          '<button class="ghost micro" data-act="csv">CSV</button>' +
+          '<button class="solid" data-act="export-all" style="background:var(--yes-ink); border-color:var(--yes-ink); font-weight:700; padding:7px 14px; font-size:13px;" title="Automatically download Excel, Alpha Excel, Master Delta JSON, Session JSON, and CSV all at once">⚡ Export All Formats (5 Files)</button>' +
+          '<button class="solid micro" data-act="xlsx" style="background:var(--panel); color:var(--ink); border:1px solid var(--hair); font-weight:600; padding:6px 10px;" title="Export structured Excel workbook with summary sheet">📊 Excel (.xlsx)</button>' +
+          '<button class="solid micro" data-act="alpha" style="background:var(--panel); color:var(--ink); border:1px solid var(--hair); font-weight:600; padding:6px 10px;" title="Export Alpha formatted spreadsheet">📋 Alpha Excel</button>' +
+          '<button class="solid micro" data-act="export-delta" style="background:#dc2626; color:#fff; border:1px solid #b91c1c; font-weight:700; padding:6px 10px;" title="Export complete historical master database (delta.json)">△ Master Delta JSON (delta.json)</button>' +
+          '<button class="solid micro" data-act="export-session" style="background:var(--panel); color:var(--ink); border:1px solid var(--hair); font-weight:600; padding:6px 10px;" title="Export returns qualified/active for selected session date">📅 Session JSON</button>' +
+          '<button class="solid micro" data-act="csv" style="background:var(--panel); color:var(--ink); border:1px solid var(--hair); font-weight:600; padding:6px 10px;" title="Export comma-separated values file">📄 CSV</button>' +
         '</div>' +
       '</div>' +
       '<div class="sect" style="margin-bottom:16px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">' +
