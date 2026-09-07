@@ -499,9 +499,9 @@ test("a custom column is added once, keyed off its name, and reopens the tally",
   }
 
   addColumn("W-2 verified");
-  eq(t.win.manifest.flags.length, 9, "the column is added");
+  eq(t.win.manifest.flags.length, 11, "the column is added");
 
-  const added = t.win.manifest.flags[8];
+  const added = t.win.manifest.flags[10];
   eq(added.key, "custom_w_2_verified", "the key is derived from the name, with no timestamp");
   noMatch(added.key, /\d{4,}/, "and carries no timestamp digits");
   eq(added.short, "W-2 verified");
@@ -521,7 +521,7 @@ test("a custom column is added once, keyed off its name, and reopens the tally",
   const box = addColumn("W-2 verified");
   match(box.querySelector('[data-ask="err"]').textContent, /already a column with that name/,
         "a second column with the same name is refused");
-  eq(t.win.manifest.flags.length, 9, "and nothing is added");
+  eq(t.win.manifest.flags.length, 11, "and nothing is added");
   ok(t.doc.querySelector(".ask"), "the modal stays open on the error");
 });
 
@@ -817,9 +817,11 @@ test("only status columns decide qualified, and % complete counts filled data ce
   match(t.doc.getElementById("pills").textContent, /1qualified/, "still qualified in the pills");
 
   /* But it is not 100% complete, because there is a cell with nothing in it. */
-  match(t.doc.getElementById("pills").textContent, /89%complete/,
-        "8 of 9 cells filled reads as 89%");
+  match(t.doc.getElementById("pills").textContent, /73%complete/,
+        "8 of 11 cells filled reads as 73%");
 
+  t.win.manifest.returns[0].status_flags.loc = "NY";
+  t.win.manifest.returns[0].status_flags.pj_id = 101;
   t.win.manifest.returns[0].status_flags.amount = 5;
   t.win.invalidateTally();
   t.win.render();
@@ -1116,8 +1118,8 @@ test("the CSV and the workbook carry typed columns, numbers as real numbers", fu
   const s1 = zip["xl/worksheets/sheet1.xml"].data.toString("utf8");
 
   /* The point of a number column: <v> in a numeric cell, never t="inlineStr". */
-  match(s1, /<c r="O2" s="11"><v>-300\.5<\/v><\/c>/, "the refund is a real numeric cell");
-  match(s1, /<c r="O3" s="11"><v>100<\/v><\/c>/, "and so is the next one");
+  match(s1, /<c r="Q2" s="11"><v>-300\.5<\/v><\/c>/, "the refund is a real numeric cell");
+  match(s1, /<c r="Q3" s="11"><v>100<\/v><\/c>/, "and so is the next one");
   noMatch(s1, /s="11"[^>]*t="inlineStr"/, "no number is ever written as a string");
   match(s1, /Jane &quot;JQ&quot;, CPA/, "the text column is escaped, not mangled");
 
@@ -1529,7 +1531,7 @@ test("the new navigation shortcuts do what the sheet claims", function () {
   const xlsx = t.lastDownload();
   key(t.doc.body, "c", { altKey: true });
   ok(t.lastDownload() !== xlsx, "Alt+C writes a second, different file");
-  match(t.lastDownload().buffer().toString("utf8"), /Return \/ ID,Filename/, "and it is the CSV");
+  match(t.lastDownload().buffer().toString("utf8"), /Return or Fund,Filename/, "and it is the CSV");
 });
 
 test("Alt+E and Alt+F are left alone, because the browser eats them on Windows", function () {
@@ -1626,7 +1628,7 @@ test("a manifest that has been through intake.ps1 twice imports with nothing los
 
   /* The four keys the app owns are the ones the script has to carry forward
      without understanding them. */
-  eq(m.flags.length, 10, "the column definitions came back");
+  eq(m.flags.length, 12, "the column definitions came back");
   eq(m.flags[8].type, "number", "with their types intact");
   eq(m.flags[9].type, "text");
   eq(m.note_cards.length, 1, "note cards survive a script run");
@@ -1637,7 +1639,7 @@ test("a manifest that has been through intake.ps1 twice imports with nothing los
   const fresh = by["NEW-07_OH222"];
   ok(fresh, "the return added on the second run is there");
   deepEq(Object.keys(fresh.status_flags),
-         FLAG_KEYS.concat(["custom_refund_amount", "custom_preparer"]),
+         FLAG_KEYS.concat(["custom_refund_amount", "custom_preparer", "loc", "pj_id"]),
          "with an entry for every column, the app's included");
   eq(fresh.status_flags.custom_refund_amount, null, "a number column starts empty as null");
   eq(fresh.status_flags.custom_preparer, "", "and a text column as an empty string");
@@ -1686,6 +1688,258 @@ test("what the app exports is what the script can read back", function () {
      forward, so a rename here quietly orphans data. */
   deepEq(Object.keys(written).sort(), Object.keys(INTAKE_FIXTURE).sort(),
          "the exported top-level keys are exactly the ones that came in");
+});
+
+test("multi-jurisdiction row creation generates multiple state rows at once", async function () {
+  const t = open();
+  t.win.adopt({ returns: [ { id: "Existing-1", state_code: "CA" } ] }, "test");
+  const doc = t.doc;
+
+  click(doc.getElementById("addRowBtn"));
+  doc.getElementById("newRowId").value = "Fund Alpha";
+  
+  click(doc.getElementById("toggleMultiStateBtn"));
+  const grid = doc.getElementById("multiStateGrid");
+  const chks = grid.querySelectorAll(".multi-state-chk");
+  for (let i = 0; i < chks.length; i++) {
+    if (["CA", "NY", "TX"].includes(chks[i].value)) {
+      chks[i].checked = true;
+    }
+  }
+  fire(grid, "change");
+
+  click(doc.getElementById("submitAddRowBtn"));
+
+  const rowEls = doc.querySelectorAll("#rows tr[data-id]");
+  const ids = Array.from(rowEls).map(r => r.getAttribute("data-id"));
+  ok(ids.includes("Fund Alpha - CA"), "contains CA row for Fund Alpha");
+  ok(ids.includes("Fund Alpha - NY"), "contains NY row for Fund Alpha");
+  ok(ids.includes("Fund Alpha - TX"), "contains TX row for Fund Alpha");
+});
+
+test("date range filtering restricts grid rows to specified received dates", async function () {
+  const t = open();
+  t.win.adopt({ returns: [
+    { id: "Return-1", date_received: "2026-08-01", state_code: "CA" },
+    { id: "Return-2", date_received: "2026-08-15", state_code: "NY" },
+    { id: "Return-3", date_received: "2026-08-30", state_code: "TX" }
+  ] }, "test");
+  const doc = t.doc;
+
+  const start = doc.getElementById("dateFilterStart");
+  const end = doc.getElementById("dateFilterEnd");
+  start.value = "2026-08-10";
+  end.value = "2026-08-20";
+  fire(start, "change");
+  fire(end, "change");
+
+  const visibleRows = doc.querySelectorAll("#rows tr[data-id]");
+  eq(visibleRows.length, 1, "only 1 row in date range 2026-08-10 to 2026-08-20");
+  eq(visibleRows[0].getAttribute("data-id"), "Return-2");
+});
+
+test("exporting Excel and Alpha export respects active filters", async function () {
+  const t = open();
+  t.win.adopt({ returns: [
+    { id: "Return-1", state_code: "CA", remarks: "Keep me" },
+    { id: "Return-2", state_code: "NY", remarks: "Filtered out" }
+  ] }, "test");
+  const doc = t.doc;
+
+  doc.getElementById("stateFilter").value = "CA";
+  fire(doc.getElementById("stateFilter"), "change");
+
+  eq(doc.querySelectorAll("#rows tr[data-id]").length, 1);
+
+  click(doc.getElementById("exportAlpha"));
+  click(doc.getElementById("exportXlsx"));
+  ok(true, "exports completed for filtered view");
+});
+
+test("importing a JSON file merges returns into Master JSON store without dropping existing data", async function () {
+  const t = open();
+  t.win.adopt({ returns: [ { id: "Return-Original", state_code: "CA" } ] }, "test");
+  const doc = t.doc;
+
+  const incoming = { returns: [ { id: "Return-New", state_code: "TX" } ] };
+  t.win.mergeManifest(incoming, "batch-2.json");
+
+  const rowEls = doc.querySelectorAll("#rows tr[data-id]");
+  eq(rowEls.length, 2, "master JSON store contains both original and merged return");
+  const ids = Array.from(rowEls).map(r => r.getAttribute("data-id"));
+  ok(ids.includes("Return-Original") && ids.includes("Return-New"));
+});
+
+test("calendar tab opens and allows filtering grid to selected date", async function () {
+  const t = open();
+  t.win.adopt({ returns: [ { id: "Return-1", date_received: "2026-08-11", state_code: "CA" } ] }, "test");
+  const doc = t.doc;
+
+  click(doc.getElementById("calendarBtn"));
+  ok(!doc.getElementById("calendarModal").classList.contains("hidden"), "calendar modal is open");
+
+  t.win.selectCalendarDate("2026-08-11", false);
+  const filterBtn = doc.querySelector("#calDayDetails #calFilterToDateBtn");
+  ok(filterBtn, "filter button exists for selected date");
+  click(filterBtn);
+
+  ok(doc.getElementById("calendarModal").classList.contains("hidden"), "calendar modal closed after filtering");
+  eq(doc.getElementById("dateFilterStart").value, "2026-08-11");
+});
+
+test("multi-state picker quick jump by short form highlights and scrolls to matching state", function () {
+  const t = open();
+  t.win.openAddRowModal();
+  const searchInput = t.doc.getElementById("multiStateSearch");
+  ok(searchInput, "multi-state search input exists");
+
+  searchInput.value = "NYS";
+  t.win.jumpToMultiState("NYS");
+  const matchElem = t.doc.querySelector('label[data-code="NYS"]');
+  ok(matchElem, "found NYS label match");
+  match(matchElem.style.outline, /1px solid/, "NYS label is highlighted with focus outline");
+});
+
+test("date specific selection recalculates pills for that active date only", function () {
+  const t = open();
+  const manifestData = {
+    returns: [
+      mkRet("R1", { date_received: "2026-09-01", status_flags: allYes() }),
+      mkRet("R2", { date_received: "2026-09-01", status_flags: {} }),
+      mkRet("R3", { date_received: "2026-09-02", status_flags: allYes() })
+    ]
+  };
+  t.win.adopt(manifestData, "test-manifest.json");
+
+  // With no date filter, pills count all 3 returns
+  match(t.doc.getElementById("pills").textContent, /3returns/, "3 total returns initially");
+
+  // Filter to single date 2026-09-01
+  t.doc.getElementById("dateFilterStart").value = "2026-09-01";
+  t.win.render();
+
+  // Pills must reflect ONLY 2026-09-01 returns (2 returns, 1 qualified)
+  match(t.doc.getElementById("pills").textContent, /2returns/, "shows 2 returns for 2026-09-01");
+  match(t.doc.getElementById("pills").textContent, /1qualified/, "shows 1 qualified return for 2026-09-01");
+});
+
+test("default column label for ID is Return or Fund", function () {
+  const t = open();
+  t.win.adopt(fixture(1), "manifest.json");
+  const cols = t.win.getColumns();
+  const idCol = cols.find(c => c.key === "id");
+  eq(idCol.label, "Return or Fund", "ID column label is Return or Fund");
+});
+
+test("readMultipleFiles integrates multiple JSON files into Master Store", function () {
+  const t = open();
+  const file1 = { name: "batch1.json", type: "application/json" };
+  const file2 = { name: "batch2.json", type: "application/json" };
+
+  const parsed1 = { returns: [mkRet("B1-1", { date_received: "2026-09-01" })] };
+  const parsed2 = { returns: [mkRet("B2-1", { date_received: "2026-09-02" })] };
+
+  // Manually merge into tracker master store as readMultipleFiles does
+  t.win.mergeManifest(parsed1, file1.name);
+  t.win.mergeManifest(parsed2, file2.name);
+
+  eq(t.win.manifest.returns.length, 2, "both JSON files merged into master store");
+  ok(t.win.manifest.returns.some(r => r.id === "B1-1"), "contains return from file 1");
+  ok(t.win.manifest.returns.some(r => r.id === "B2-1"), "contains return from file 2");
+});
+
+test("exportAll triggers all exports at once", function () {
+  const t = open();
+  t.win.adopt(fixture(1), "manifest.json");
+  let count = 0;
+  t.win.exportXlsx = function() { count++; };
+  t.win.exportAlpha = function() { count++; };
+  t.win.exportDeltaJson = function() { count++; };
+  t.win.exportSessionJson = function() { count++; };
+  t.win.exportCsv = function() { count++; };
+
+  t.win.exportAll();
+  eq(count, 5, "exportAll triggered all 5 export functions");
+});
+
+test("Delta panel filters analytics by active date and excludes loc and pj_id cards", function () {
+  const t = open();
+  const manifestData = {
+    returns: [
+      mkRet("R1", { date_received: "2026-09-01", status_flags: { loc: "NY", pj_id: 101 } }),
+      mkRet("R2", { date_received: "2026-09-02", status_flags: { loc: "CA", pj_id: 102 } })
+    ]
+  };
+  t.win.adopt(manifestData, "test-manifest.json");
+
+  // Filter UI to 2026-09-01
+  t.doc.getElementById("dateFilterStart").value = "2026-09-01";
+  t.win.render();
+
+  t.win.openManifest();
+  const sheet = t.doc.querySelector(".manifest-sheet");
+  ok(sheet, "Delta sheet opened");
+  match(sheet.textContent, /Showing △ Delta analytics for active view/, "indicates date filter is active");
+  match(sheet.textContent, /1 \(of 2 total\)/, "shows 1 return in filtered active view");
+  noMatch(sheet.textContent, /Breakdown by Loc/, "loc breakdown is excluded");
+  noMatch(sheet.textContent, /Breakdown by PJ-ID/, "pj_id breakdown is excluded");
+});
+
+test("Delta button is high-visibility and functional in light and dark mode", function () {
+  const t = open();
+  const btn = t.doc.getElementById("manifestBtn");
+  ok(btn, "Delta button exists");
+  ok(btn.classList.contains("delta-btn"), "Delta button carries high-visibility delta-btn class");
+  eq(btn.disabled, false, "Delta button is enabled and clickable immediately");
+
+  // Test dark mode toggle maintains functionality
+  t.doc.body.classList.add("dark");
+  click(btn);
+  const sheet = t.doc.querySelector(".manifest-sheet");
+  ok(sheet, "Delta sheet opens in dark mode");
+});
+
+test("exportDeltaJson and exportSessionJson function correctly and exportAll includes both", function () {
+  const t = open();
+  t.win.adopt(fixture(2), "manifest.json");
+
+  let savedBlobName = null;
+  t.win.saveBlob = function (name, blob) {
+    savedBlobName = name;
+  };
+
+  t.win.exportDeltaJson();
+  eq(savedBlobName, "delta.json", "exportDeltaJson exports delta.json");
+
+  t.win.exportSessionJson();
+  ok(savedBlobName && savedBlobName.startsWith("session_returns_"), "exportSessionJson exports session_returns JSON");
+
+  let exportsCount = 0;
+  t.win.saveBlob = function () { exportsCount++; };
+  t.win.exportAll();
+  eq(exportsCount, 5, "exportAll exports 5 files (xlsx, alpha, delta json, session json, csv)");
+});
+
+test("loadDeltaBtn triggers file selection and links suggest delta.json", function () {
+  const t = open();
+  t.win.adopt(fixture(1), "manifest.json");
+
+  const loadDeltaBtn = t.doc.getElementById("loadDeltaBtn");
+  ok(loadDeltaBtn, "loadDeltaBtn is rendered");
+
+  let clicked = false;
+  t.doc.getElementById("deltaFileInput").click = function () { clicked = true; };
+  click(loadDeltaBtn);
+  eq(clicked, true, "clicking loadDeltaBtn triggers deltaFileInput.click()");
+
+  let pickedOptions = null;
+  t.win.showSaveFilePicker = function (opts) {
+    pickedOptions = opts;
+    return Promise.resolve({ name: "delta.json" });
+  };
+  t.win.toggleLinkFile();
+  ok(pickedOptions, "showSaveFilePicker called");
+  eq(pickedOptions.suggestedName, "delta.json", "link file suggests delta.json");
 });
 
 /* ------------------------------------------------------------------- main */

@@ -1656,6 +1656,7 @@ body.shortcuts-off #keyhints { display: none; }
     <button id="shortcutsBtn" class="ghost" aria-pressed="true" title="Turn application keyboard shortcuts on or off">⌨ Shortcuts on</button>
     <button id="themeBtn" class="ghost" aria-pressed="false" title="Switch between light and dark mode">◐ Dark</button>
     <button id="crmOnlyBtn" title="Show only the CRM grid while keeping the browser address bar visible">⤢ CRM only</button>
+    <button id="calendarBtn" title="View returns calendar by date worked (Alt+K)">📅 Calendar</button>
     <button id="notepadBtn" title="Full-screen blank notepad with copyable snippets (Alt+P)">🗒️ Notepad</button>
     <button id="notesBtn" title="Note cards, scratchpad and every open issue (Ctrl+N)">📝 Quick Notes</button>
     <button id="resetSessionBtn" class="ghost" title="Clear local session &amp; start fresh">↻ New Session</button>
@@ -1666,26 +1667,25 @@ body.shortcuts-off #keyhints { display: none; }
     <input type="file" id="fileInput" accept=".json,application/json" multiple>
     <button id="loadDeltaBtn" class="ghost" style="padding:4px 8px; font-weight:600;" title="Load historical master delta.json file">△ Load Master Delta</button>
     <input type="file" id="deltaFileInput" accept=".json,application/json" class="hidden">
-    <button id="manifestBtn" class="delta-btn" title="Open △ Delta Dashboard (Analytics, Unified Exports, Settings)">△ Delta</button>
+    <button id="manifestBtn" class="delta-btn" title="Open △ Delta dashboard (Analytics, Unified Exports, Settings)">△ Delta</button>
   </div>
-  <div class="rule"></div>
-  <div class="group">
-    <button id="exportXlsx" disabled title="Real .xlsx workbook, formatted, 2 sheets">Export Excel</button>
-    <button id="exportAlpha" disabled title="Offline .xlsx with return name, state code and qualification remark">Alpha Export</button>
-    <button id="exportJson" disabled title="Save master delta file — re-importable (Ctrl+S)">Export JSON</button>
-    <button id="exportDeltaJson" class="hidden">Export Master Delta</button>
-    <button id="exportSessionJson" class="hidden">Export Session JSON</button>
-    <button id="exportCsv" disabled title="Plain CSV of the visible rows">Export CSV</button>
-    <button id="exportAll" disabled class="solid" style="background:var(--yes-ink); border-color:var(--yes-ink);" title="Export Excel, Alpha, Master Delta, Session JSON & CSV at once">⚡ Export All</button>
+  <div class="hidden">
+    <button id="exportXlsx" disabled>Export Excel</button>
+    <button id="exportAlpha" disabled>Alpha Export</button>
+    <button id="exportJson" disabled>Export JSON</button>
+    <button id="exportDeltaJson" disabled>Export Master Delta JSON</button>
+    <button id="exportSessionJson" disabled>Export Session JSON</button>
+    <button id="exportCsv" disabled>Export CSV</button>
+    <button id="exportAll" disabled>Export All</button>
   </div>
 </header>
 
 <div class="banners" id="banners"></div>
 
 <div class="toolbar hidden" id="toolbar">
-  <button id="addRowBtn" class="solid" style="padding:4px 10px;" title="Add a new custom return row">+ Add Row</button>
+  <button id="addRowBtn" class="solid" style="padding:4px 10px;" title="Add a new custom return or fund row">+ Add Row</button>
   <div class="rule"></div>
-  <input type="search" id="search" placeholder="Search ID, file, remarks…" aria-label="Search returns">
+  <input type="search" id="search" placeholder="Search Return or Fund, file, remarks…" aria-label="Search returns">
   <select id="stateFilter" title="Filter by state" aria-label="Filter by state"><option value="">All states</option></select>
   <select id="statusFilter" title="Filter by progress" aria-label="Filter by progress">
     <option value="all">Everything</option>
@@ -1704,6 +1704,7 @@ body.shortcuts-off #keyhints { display: none; }
   <button id="clearFiltersBtn" class="ghost clear-filters hidden" title="Clear search, state, status, and date filters (Alt+R)">✕ Clear filters</button>
   <button id="groupBtn" title="Cluster rows by state">Group by state</button>
   <button id="viewBtn" title="Columns, density and input options">View</button>
+  <button class="delta-btn" onclick="openManifest()" title="Open △ Delta dashboard (Analytics, Unified Exports, Settings)">△ Delta</button>
   <button id="linkFileBtn" title="Write every change straight into manifest.json on disk">Link file</button>
   <span id="autoSaveBadge" class="autosave-badge" title="Real-time local auto-save status">● Saved locally</span>
   <div class="pills" id="pills"></div>
@@ -1748,16 +1749,36 @@ body.shortcuts-off #keyhints { display: none; }
       <input type="date" id="newRowDate" style="width:100%; padding:6px 9px; border:1px solid var(--hair); border-radius:6px; font-size:12.5px;">
     </div>
     <div>
-      <label class="micro" style="display:block; margin-bottom:4px;">Remarks / Notes (optional)</label>
-      <input type="text" id="newRowRemarks" placeholder="Optional initial remarks" style="width:100%; padding:6px 9px; border:1px solid var(--hair); border-radius:6px; font-size:12.5px;">
+      <label class="micro" style="display:block; margin-bottom:4px;">Initial Remarks</label>
+      <input type="text" id="newRowRemarks" placeholder="Optional notes or remarks…" style="width:100%; padding:6px 9px; border:1px solid var(--hair); border-radius:6px; font-size:12.5px;">
     </div>
-    <div id="newRowErr" style="color:var(--no-ink); font-size:12px; font-weight:600;"></div>
+    <div id="newRowErr" class="err" role="alert"></div>
   </div>
-  <footer style="border-radius: 0 0 12px 12px;">
+  <footer style="border-radius: 0 0 12px 12px; justify-content: flex-end;">
     <button id="cancelAddRowBtn" class="ghost">Cancel</button>
-    <div class="grow"></div>
-    <button id="submitAddRowBtn" class="solid" style="background:#2f6feb; border-color:#2f6feb;">Add Return Row(s)</button>
+    <button id="submitAddRowBtn" class="solid">Create Row(s)</button>
   </footer>
+</div>
+
+<div id="calendarScrim" class="scrim hidden"></div>
+<div id="calendarModal" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="calendarTitle" style="width: 720px; max-height: 88vh; top: 6%; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(0,0,0,0.25); z-index: 45; display:flex; flex-direction:column;">
+  <header style="border-radius: 12px 12px 0 0;">
+    <span id="calendarTitle" style="font-weight:700;">📅 Returns &amp; Funds Calendar</span>
+    <div class="grow"></div>
+    <button id="closeCalendarBtn" class="ghost">✕</button>
+  </header>
+  <div class="body" style="display:flex; flex-direction:column; gap:12px; padding:16px; overflow-y:auto;">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--line);">
+      <button id="calPrevMonthBtn" class="ghost" style="font-weight:600;">← Prev Month</button>
+      <span id="calMonthTitle" style="font-weight:700; font-size:14px; color:var(--ink);"></span>
+      <button id="calNextMonthBtn" class="ghost" style="font-weight:600;">Next Month →</button>
+    </div>
+    <div id="calendarGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:6px;">
+    </div>
+    <div id="calDayDetails" style="border:1px solid var(--line); border-radius:8px; padding:12px; background:var(--paper); min-height:100px;">
+      <span style="font-size:12px; color:var(--ink-3);">Click any date on the calendar to inspect funds worked on or received on that date.</span>
+    </div>
+  </div>
 </div>
 
 <div id="notesScrim" class="scrim hidden"></div>
@@ -2054,7 +2075,9 @@ var DEFAULT_FLAGS = [
   { key:"xml_downloaded",      short:"XML",    label:"XML downloaded",      type:"status" },
   { key:"batch_downloaded",    short:"Batch",  label:"Batch downloaded",    type:"status" },
   { key:"recon_checked",       short:"Recon",  label:"Recon checked",       type:"status" },
-  { key:"tfr_checked",         short:"TFR",    label:"TFR checked",         type:"status" }
+  { key:"tfr_checked",         short:"TFR",    label:"TFR checked",         type:"status" },
+  { key:"loc",                 short:"Loc",    label:"Loc",                 type:"text" },
+  { key:"pj_id",               short:"PJ-ID",  label:"PJ-ID",               type:"number" }
 ];
 
 /* ---- column types -------------------------------------------------------
@@ -2107,6 +2130,7 @@ var CAT_LABELS = {
 };
 var CYCLE    = [null, "yes", "no", "issue"];
 var DRAFT_KEY = "returns-tracker-draft-v1";
+var MAIN_STORE_KEY = "crm_main_manifest_v1";
 var PREFS_KEY = "returns-tracker-prefs-v1";
 
 /* Stamped into every manifest so a future version can migrate instead of guess.
@@ -2238,8 +2262,8 @@ var el = {
   dateFilterStart: $("dateFilterStart"), dateFilterEnd: $("dateFilterEnd"),
   toggleDateRangeBtn: $("toggleDateRangeBtn"), dateToSpan: $("dateToSpan"),
   clearFiltersBtn: $("clearFiltersBtn"),
-  loadDeltaBtn: $("loadDeltaBtn"), deltaFileInput: $("deltaFileInput"),
   groupBtn: $("groupBtn"), viewBtn: $("viewBtn"), manifestBtn: $("manifestBtn"),
+  loadDeltaBtn: $("loadDeltaBtn"), deltaFileInput: $("deltaFileInput"),
   exportXlsx: $("exportXlsx"), exportAlpha: $("exportAlpha"),
   exportJson: $("exportJson"), exportDeltaJson: $("exportDeltaJson"),
   exportSessionJson: $("exportSessionJson"), exportCsv: $("exportCsv"), exportAll: $("exportAll"),
@@ -2261,11 +2285,15 @@ var el = {
   closeAddRowBtn: $("closeAddRowBtn"), cancelAddRowBtn: $("cancelAddRowBtn"),
   submitAddRowBtn: $("submitAddRowBtn"), newRowId: $("newRowId"),
   newRowState: $("newRowState"), newRowDate: $("newRowDate"), newRowRemarks: $("newRowRemarks"),
-  newRowErr: $("newRowErr"),
   toggleMultiStateBtn: $("toggleMultiStateBtn"), multiStateBox: $("multiStateBox"),
-  multiStateSearch: $("multiStateSearch"), selectAllStatesBtn: $("selectAllStatesBtn"),
-  clearAllStatesBtn: $("clearAllStatesBtn"), multiStateCount: $("multiStateCount"),
-  multiStateGrid: $("multiStateGrid"),
+  multiStateSearch: $("multiStateSearch"),
+  selectAllStatesBtn: $("selectAllStatesBtn"), clearAllStatesBtn: $("clearAllStatesBtn"),
+  multiStateCount: $("multiStateCount"), multiStateGrid: $("multiStateGrid"),
+  newRowErr: $("newRowErr"),
+  calendarBtn: $("calendarBtn"), calendarScrim: $("calendarScrim"), calendarModal: $("calendarModal"),
+  closeCalendarBtn: $("closeCalendarBtn"), calPrevMonthBtn: $("calPrevMonthBtn"),
+  calNextMonthBtn: $("calNextMonthBtn"), calMonthTitle: $("calMonthTitle"),
+  calendarGrid: $("calendarGrid"), calDayDetails: $("calDayDetails"),
   notepad: $("notepad"), npText: $("npText"), npClose: $("npClose"), npStamp: $("npStamp"),
   npDivider: $("npDivider"), npCopyAll: $("npCopyAll"), npWrap: $("npWrap"), npSnips: $("npSnips"),
   npSide: $("npSide"), npSnipList: $("npSnipList"),
@@ -2616,7 +2644,15 @@ function normalise(parsed) {
   }
   if (!Array.isArray(parsed.flagged)) { parsed.flagged = []; }
   if (!Array.isArray(parsed.note_cards)) { parsed.note_cards = []; }
-  if (!Array.isArray(parsed.flags)) { parsed.flags = JSON.parse(JSON.stringify(DEFAULT_FLAGS)); }
+  if (!Array.isArray(parsed.flags)) {
+    parsed.flags = JSON.parse(JSON.stringify(DEFAULT_FLAGS));
+  } else {
+    DEFAULT_FLAGS.forEach(function (defFlag) {
+      if (!parsed.flags.some(function (f) { return f.key === defFlag.key; })) {
+        parsed.flags.push(JSON.parse(JSON.stringify(defFlag)));
+      }
+    });
+  }
 
   /* Pin every column's type to one this version understands. A manifest from
      before typed columns has no `type` at all, and a manifest from a newer
@@ -2836,75 +2872,6 @@ function readMultipleFiles(files) {
       banner("warn", "Could not parse " + errorFiles.length + " file(s): " + errorFiles.join(", "));
     }
   });
-}
-
-function mergeManifest(incoming, label) {
-  var out = normalise(incoming);
-  var inc = out.manifest;
-
-  if (!manifest || !manifest.returns || manifest.returns.length === 0) {
-    adopt(inc, label);
-    return;
-  }
-
-  var existingMap = {};
-  manifest.returns.forEach(function (r) {
-    if (r.id) { existingMap["id:" + r.id] = r; }
-    if (r.filename && r.state_code) { existingMap["fn:" + r.filename + ":" + r.state_code] = r; }
-  });
-
-  var addedCount = 0;
-  var updatedCount = 0;
-  var now = todayISO();
-
-  inc.returns.forEach(function (r) {
-    var key1 = r.id ? "id:" + r.id : null;
-    var key2 = (r.filename && r.state_code) ? "fn:" + r.filename + ":" + r.state_code : null;
-    var hit = (key1 && existingMap[key1]) || (key2 && existingMap[key2]);
-
-    if (hit) {
-      if (r.status_flags) {
-        Object.keys(r.status_flags).forEach(function (k) {
-          if (r.status_flags[k] !== null && r.status_flags[k] !== undefined) {
-            hit.status_flags[k] = r.status_flags[k];
-          }
-        });
-      }
-      if (r.remarks && !hit.remarks) { hit.remarks = r.remarks; }
-      if (!hit.date_received && r.date_received) { hit.date_received = r.date_received; }
-      hit.last_worked = now;
-      updatedCount++;
-    } else {
-      r.date_received = r.date_received || now;
-      r.last_worked = now;
-      manifest.returns.push(r);
-      if (r.id) { existingMap["id:" + r.id] = r; }
-      addedCount++;
-    }
-  });
-
-  if (Array.isArray(inc.flags)) {
-    inc.flags.forEach(function (f) {
-      if (!manifest.flags.some(function (ef) { return ef.key === f.key; })) {
-        manifest.flags.push(f);
-      }
-    });
-  }
-
-  if (inc.assignment_folder && manifest.assignment_folder && manifest.assignment_folder.indexOf(inc.assignment_folder) === -1) {
-    manifest.assignment_folder += " + " + inc.assignment_folder;
-  }
-
-  buildHead();
-  buildStateFilter();
-  populateNoteReturnSelect();
-  render();
-  markDirty(addedCount + updatedCount);
-  saveDraft();
-
-  banner("info", '<b>Merged ' + (addedCount + updatedCount) + ' returns from ' + esc(label) +
-         ' into Main JSON Store.</b> (' + addedCount + ' new, ' + updatedCount + ' updated, ' +
-         manifest.returns.length + ' total returns).');
 }
 
 /* =====================================================================
@@ -3452,12 +3419,15 @@ function buildFocusMap() {
 }
 
 function renderPills() {
-  var isDateFiltered = (el.dateFilterStart && el.dateFilterStart.value) || (el.dateFilterEnd && el.dateFilterEnd.value) || (selectedMultiDates && selectedMultiDates.length > 0);
-  var targetReturns = isDateFiltered ? getBaseFilteredReturns() : manifest.returns;
-  var total = targetReturns.length, done = 0, issues = 0, fresh = 0, nostate = 0;
+  if (!manifest) return;
+  var sourceReturns = (filtersActive() && typeof getBaseFilteredReturns === "function")
+    ? getBaseFilteredReturns()
+    : manifest.returns;
+
+  var total = sourceReturns.length, done = 0, issues = 0, fresh = 0, nostate = 0;
   var filledCells = 0, allCells = 0;
 
-  targetReturns.forEach(function (r) {
+  sourceReturns.forEach(function (r) {
     var t = tally(r);
     /* A step marked yes and a data cell with something in it both count as work
        done; a no or an issue does not, because it is still outstanding. */
@@ -3494,19 +3464,6 @@ function filtersActive() {
             (el.dateFilterStart && el.dateFilterStart.value) ||
             (el.dateFilterEnd && el.dateFilterEnd.value) ||
             (selectedMultiDates && selectedMultiDates.length > 0));
-}
-
-function clearFilters() {
-  el.search.value = "";
-  el.stateFilter.value = "";
-  el.statusFilter.value = "all";
-  if (el.dateFilterStart) el.dateFilterStart.value = "";
-  if (el.dateFilterEnd) el.dateFilterEnd.value = "";
-  if (el.dateToSpan) el.dateToSpan.classList.add("hidden");
-  if (el.dateFilterEnd) el.dateFilterEnd.classList.add("hidden");
-  if (el.toggleDateRangeBtn) el.toggleDateRangeBtn.textContent = "+ Range";
-  selectedMultiDates = [];
-  render();
 }
 
 function paintFilterState() {
@@ -3855,8 +3812,12 @@ function undo() {
     populateNoteReturnSelect();
 
   } else if (entry.kind === "addrow") {
-    var at = manifest.returns.indexOf(entry.ret);
-    if (at !== -1) { manifest.returns.splice(at, 1); }
+    var retsToRemove = entry.returns || (entry.ret ? [entry.ret] : []);
+    retsToRemove.forEach(function (r) {
+      if (!r) return;
+      var at = manifest.returns.indexOf(r);
+      if (at !== -1) { manifest.returns.splice(at, 1); }
+    });
     populateNoteReturnSelect();
 
   } else if (entry.kind === "reorder") {
@@ -4278,6 +4239,7 @@ document.addEventListener("keydown", function (ev) {
     if (lower === "m") { ev.preventDefault(); if (manifest) { openManifest(); } return; }
     if (lower === "v") { ev.preventDefault(); if (manifest) { el.viewBtn.click(); } return; }
     if (lower === "g") { ev.preventDefault(); if (manifest) { el.groupBtn.click(); } return; }
+    if (lower === "k") { ev.preventDefault(); if (manifest) { openCalendarModal(); } return; }
     if (lower === "x") { ev.preventDefault(); if (manifest) { exportXlsx(); } return; }
     if (lower === "c") { ev.preventDefault(); if (manifest) { exportCsv(); } return; }
     if (lower === "l") { ev.preventDefault(); toggleLinkFile(); return; }
@@ -4301,6 +4263,7 @@ document.addEventListener("keydown", function (ev) {
     if (helpOpen()) { closeHelp(); return; }
     if (notepadOpen()) { closeNotepad(); return; }
     if (sheet) { closeSheet(); return; }
+    if (el.calendarModal && !el.calendarModal.classList.contains("hidden")) { closeCalendarModal(); return; }
     if (el.addRowModal && !el.addRowModal.classList.contains("hidden")) { closeAddRowModal(); return; }
     if (el.notesSheet && !el.notesSheet.classList.contains("hidden")) { closeNotes(); return; }
     if (selectionCount()) {
@@ -4319,13 +4282,16 @@ function focusSearch() {
 }
 
 /* One key for "show me everything again", because getting back to the full list
-   otherwise means resetting a search box and two dropdowns one at a time. */
+   otherwise means resetting a search box, dropdowns, and date inputs one at a time. */
 function clearFilters() {
   if (!manifest) { return; }
-  var had = el.search.value || el.stateFilter.value || (el.statusFilter.value !== "all");
+  var had = filtersActive();
+  selectedMultiDates = [];
   el.search.value = "";
   el.stateFilter.value = "";
   el.statusFilter.value = "all";
+  if (el.dateFilterStart) { el.dateFilterStart.value = ""; }
+  if (el.dateFilterEnd) { el.dateFilterEnd.value = ""; }
   render();
   toast(had ? "Search and filters cleared — showing all " + manifest.returns.length + " returns"
             : "Nothing was filtered.");
@@ -4341,11 +4307,29 @@ window.addEventListener("beforeunload", function (ev) {
    ===================================================================== */
 
 el.fileInput.addEventListener("change", function () {
-  if (this.files && this.files[0]) { readFile(this.files[0]); }
+  if (this.files && this.files.length > 1) {
+    readMultipleFiles(this.files);
+  } else if (this.files && this.files[0]) {
+    readFile(this.files[0]);
+  }
   this.value = "";
 });
 
-[el.search, el.stateFilter, el.statusFilter].forEach(function (c) {
+if (el.loadDeltaBtn && el.deltaFileInput) {
+  el.loadDeltaBtn.addEventListener("click", function () {
+    el.deltaFileInput.click();
+  });
+  el.deltaFileInput.addEventListener("change", function () {
+    if (this.files && this.files.length > 1) {
+      readMultipleFiles(this.files);
+    } else if (this.files && this.files[0]) {
+      readFile(this.files[0]);
+    }
+    this.value = "";
+  });
+}
+
+[el.search, el.stateFilter, el.statusFilter, el.dateFilterStart, el.dateFilterEnd].filter(Boolean).forEach(function (c) {
   c.addEventListener("input", render);
   c.addEventListener("change", render);
 });
@@ -4541,24 +4525,6 @@ el.viewBtn.addEventListener("click", function () {
   });
 });
 
-if (el.toggleDateRangeBtn) {
-  el.toggleDateRangeBtn.addEventListener("click", function () {
-    if (!el.dateFilterEnd) return;
-    var isHidden = el.dateFilterEnd.classList.contains("hidden");
-    if (isHidden) {
-      el.dateFilterEnd.classList.remove("hidden");
-      if (el.dateToSpan) el.dateToSpan.classList.remove("hidden");
-      this.textContent = "✕ Range";
-    } else {
-      el.dateFilterEnd.value = "";
-      el.dateFilterEnd.classList.add("hidden");
-      if (el.dateToSpan) el.dateToSpan.classList.add("hidden");
-      this.textContent = "+ Range";
-      render();
-    }
-  });
-}
-
 /* =====================================================================
    10. Manifest panel
    ===================================================================== */
@@ -4576,7 +4542,8 @@ function closeSheet() {
    is described by how it was marked; a number or text column by how much of it
    is filled in, and a number column additionally by its total and range —
    which is most of why you would make a column a number in the first place. */
-function stepStats() {
+function stepStats(returnsList) {
+  var targetReturns = returnsList || (manifest ? manifest.returns : []);
   return getFlags().map(function (f) {
     var type = flagType(f);
     var s = {
@@ -4584,7 +4551,7 @@ function stepStats() {
       yes:0, no:0, issue:0, none:0,
       filled:0, blank:0, sum:0, min:null, max:null, avg:null
     };
-    manifest.returns.forEach(function (r) {
+    targetReturns.forEach(function (r) {
       if (type === "status") {
         var v = flagOf(r, f.key);
         if (v === null) { s.none++; } else { s[v]++; }
@@ -4623,14 +4590,34 @@ function daysSince(dateStr) {
   return Math.round((today.getTime() - d.getTime()) / 86400000);
 }
 
+function exportAll() {
+  if (!manifest) { return; }
+  exportXlsx();
+  exportAlpha();
+  exportDeltaJson();
+  exportSessionJson();
+  exportCsv();
+  toast("⚡ Exported All Formats (Excel, Alpha Excel, Master Delta JSON, Session JSON, CSV)");
+}
+
 function openManifest() {
   closeSheet();
-  var totalReturns = manifest.returns.length;
+
+  if (!manifest) {
+    adopt({ assignment_folder: "Default Workspace", returns: [] }, "default workspace");
+  }
+
+  var isFiltered = filtersActive();
+  var activeReturns = (isFiltered && typeof getBaseFilteredReturns === "function")
+    ? getBaseFilteredReturns()
+    : (manifest ? manifest.returns : []);
+
+  var totalReturns = activeReturns.length;
   var total = totalReturns || 1;
   var statusCounts = { done:0, issue:0, progress:0, fresh:0, nostate:0 };
 
   var byState = {};
-  manifest.returns.forEach(function (r) {
+  activeReturns.forEach(function (r) {
     var k = r.state_code || "—";
     if (!byState[k]) { byState[k] = { n:0, done:0, issue:0 }; }
     byState[k].n++;
@@ -4646,7 +4633,34 @@ function openManifest() {
 
   function pct(n, base) { return base ? Math.round((n / base) * 100) : 0; }
 
-  var allStepStats = stepStats();
+  var allStepStats = getFlags().map(function (f) {
+    var type = flagType(f);
+    var label = f.label || f.short || f.key;
+    var res = { key: f.key, label: label, type: type, yes: 0, no: 0, issue: 0, filled: 0, sum: 0, min: Infinity, max: -Infinity };
+    activeReturns.forEach(function (r) {
+      var v = flagOf(r, f.key);
+      if (type === "status") {
+        if (v === "Y") res.yes++;
+        else if (v === "N") res.no++;
+        else if (v === "I") res.issue++;
+      } else {
+        var tv = typedValue(r, f);
+        if (!isBlankValue(tv)) {
+          res.filled++;
+          if (type === "number" && typeof tv === "number" && !isNaN(tv)) {
+            res.sum += tv;
+            res.min = Math.min(res.min, tv);
+            res.max = Math.max(res.max, tv);
+          }
+        }
+      }
+    });
+    res.avg = res.filled ? res.sum / res.filled : 0;
+    if (res.min === Infinity) res.min = 0;
+    if (res.max === -Infinity) res.max = 0;
+    return res;
+  });
+
   var statusStepStats = allStepStats.filter(function (s) { return s.type === "status"; });
   var bottleneck = statusStepStats.slice().sort(function (a, b) {
     return a.yes - b.yes;
@@ -4675,7 +4689,7 @@ function openManifest() {
       "%;background:" + item.color + '"></i></span><b>' + item.n + "</b></div>";
   }).join("");
 
-  var insightsHtml = statusStepStats.length
+  var insightsHtml = statusStepStats.length && bottleneck && issueLeader
     ? '<div class="analytics-insights">' +
         '<div class="analytics-insight"><b>Bottleneck:</b> ' + esc(bottleneck.label) + " · " +
           pct(bottleneck.yes, totalReturns) + '% marked yes</div>' +
@@ -4684,7 +4698,14 @@ function openManifest() {
       "</div>"
     : '<div class="analytics-insights"><div class="analytics-insight">No status columns available for step analytics.</div></div>';
 
+  var filterBannerHtml = isFiltered
+    ? '<div class="analytics-insight" style="background:var(--accent-glow, rgba(0,120,212,0.15)); border:1px solid var(--focus); margin-bottom:12px; padding:6px 10px; border-radius:6px; font-size:12px;">' +
+        '<b>📅 Filter Active:</b> Showing △ Delta analytics for active view (' + totalReturns + ' of ' + manifest.returns.length + ' returns)' +
+      '</div>'
+    : '';
+
   var analyticsHtml =
+    filterBannerHtml +
     '<div class="analytics-kpis">' +
       '<div class="analytics-kpi"><strong>' + totalReturns + '</strong><span>Total returns</span></div>' +
       '<div class="analytics-kpi good"><strong>' + pct(statusCounts.done, totalReturns) + '%</strong><span>Qualified</span></div>' +
@@ -4717,8 +4738,6 @@ function openManifest() {
     function seg(cls, n) { return n ? '<span class="' + cls + '" style="width:' + ((n / total) * 100) + '%"></span>' : ""; }
 
     if (s.type !== "status") {
-      /* A data column has nothing to be "yes" — how much of it is filled in is
-         the only progress it has, so that is what the bar shows. */
       var extra = s.type === "number" && s.filled
         ? '<span class="tnote">Σ ' + esc(tidyNumber(s.sum)) + " · avg " + esc(tidyNumber(s.avg)) +
           (s.min !== s.max ? " · " + esc(tidyNumber(s.min)) + "–" + esc(tidyNumber(s.max)) : "") + "</span>"
@@ -4727,20 +4746,20 @@ function openManifest() {
                '<div class="name"><span>' + esc(s.label) +
                  ' <span class="tkind">' + (s.type === "number" ? "123" : "abc") + "</span></span>" + extra + "</div>" +
                '<div class="track">' + seg("f", s.filled) + "</div>" +
-             '</div><div class="num">' + s.filled + "/" + manifest.returns.length + "</div></div>";
+             '</div><div class="num">' + s.filled + "/" + activeReturns.length + "</div></div>";
     }
 
     return '<div class="step"><div>' +
              '<div class="name"><span>' + esc(s.label) + "</span></div>" +
              '<div class="track">' + seg("y", s.yes) + seg("q", s.issue) + seg("n", s.no) + "</div>" +
-           '</div><div class="num">' + s.yes + "/" + manifest.returns.length + "</div></div>";
+           '</div><div class="num">' + s.yes + "/" + activeReturns.length + "</div></div>";
   }).join("");
 
   var flaggedHtml = (manifest.flagged || []).length
     ? manifest.flagged.map(function (f) {
         var name = String(f && f.filename || "");
         var base = name.replace(/\.pdf$/i, "");
-        var hit = manifest.returns.filter(function (r) { return r.id === base || r.filename === name; })[0];
+        var hit = activeReturns.filter(function (r) { return r.id === base || r.filename === name; })[0];
         var fixed = hit && hit.state_code;
         return '<div class="flagrow"><span class="fn">' + esc(name) + "</span>" +
                '<span class="tag ' + (fixed ? "fixed" : "open") + '">' +
@@ -4756,12 +4775,8 @@ function openManifest() {
            '<td class="n">' + s.n + '</td><td class="n">' + s.done + '</td><td class="n">' + s.issue + "</td></tr>";
   }).join("");
 
-  /* Aging — how long the not-yet-qualified returns have been sitting, and
-     which ones the longest, so there is a "what to pick up next" answer
-     instead of just a percentage. Uses date_received, already on every
-     return; nothing new has to be typed in for this to work. */
   var AGING_LIMIT = 8;
-  var openReturns = manifest.returns.filter(function (r) { return !isDone(r); });
+  var openReturns = activeReturns.filter(function (r) { return !isDone(r); });
   var agedOpen = openReturns.map(function (r) {
     return { r: r, age: daysSince(r.date_received) };
   }).filter(function (x) { return x.age !== null; });
@@ -4770,8 +4785,8 @@ function openManifest() {
     : null;
   var oldestOpen = agedOpen.slice().sort(function (a, b) { return b.age - a.age; }).slice(0, AGING_LIMIT);
 
-  var agingHtml = !manifest.returns.length
-    ? '<div style="color:var(--ink-3);font-size:11px;">No returns loaded.</div>'
+  var agingHtml = !activeReturns.length
+    ? '<div style="color:var(--ink-3);font-size:11px;">No returns in active view.</div>'
     : !openReturns.length
       ? '<div style="color:var(--ink-3);font-size:11px;">Everything is qualified — nothing open to age.</div>'
       : !agedOpen.length
@@ -4787,15 +4802,12 @@ function openManifest() {
                    '<span class="tag">' + x.age + " day" + (x.age === 1 ? "" : "s") + "</span></div>";
           }).join("");
 
-  /* Breakdown by any custom text column — e.g. a "Preparer" column added via
-     View -> Add a column shows up here the same way state does, with no code
-     specific to what that column happens to be named. Nothing to add if no
-     such column exists yet. */
+  /* Exclude loc and pj_id from custom breakdown cards */
   var customBreakdownHtml = getFlags().filter(function (f) {
-    return f.custom && flagType(f) === "text";
+    return f.custom && flagType(f) === "text" && f.key !== "loc" && f.key !== "pj_id";
   }).map(function (f) {
     var byVal = {};
-    manifest.returns.forEach(function (r) {
+    activeReturns.forEach(function (r) {
       var v = typedValue(r, f);
       var k = isBlankValue(v) ? "(unassigned)" : String(v);
       if (!byVal[k]) { byVal[k] = { n:0, done:0, issue:0 }; }
@@ -4816,14 +4828,10 @@ function openManifest() {
            "<tbody>" + rowsHtml + "</tbody></table></div>";
   }).join("");
 
-  /* Needs attention — every return with an issue on some step, listed by
-     return with which step(s) flagged it, instead of a bare count you cannot
-     act on. Capped so one bad batch cannot turn this into an endless list;
-     the "issues" pill still shows everything if there is more. */
   var ATTENTION_LIMIT = 20;
-  var issueReturns = manifest.returns.filter(function (r) { return hasIssue(r); });
+  var issueReturns = activeReturns.filter(function (r) { return hasIssue(r); });
   var attentionHtml = !issueReturns.length
-    ? '<div style="color:var(--ink-3);font-size:11px;">No open issues right now.</div>'
+    ? '<div style="color:var(--ink-3);font-size:11px;">No open issues in active view.</div>'
     : issueReturns.slice(0, ATTENTION_LIMIT).map(function (r) {
         var steps = statusFlags().filter(function (f) { return flagOf(r, f.key) === "issue"; })
           .map(function (f) { return f.label || f.short || f.key; }).join(", ");
@@ -4837,16 +4845,13 @@ function openManifest() {
           (issueReturns.length - ATTENTION_LIMIT) + ' more — use the <b>issues</b> pill to see the rest.</div>'
         : "");
 
-  /* Custom number columns get their own summary — the total, average and
-     range already exist in stepStats() for the per-step bar's small note;
-     this gives them a prominent card plus a per-state split, the way a
-     Refund-amount column would want to be read at a glance. */
+  /* Exclude loc and pj_id from number summaries */
   var numberSummaryHtml = allStepStats.filter(function (s) {
-    return s.type === "number";
+    return s.type === "number" && s.key !== "pj_id" && s.key !== "loc";
   }).map(function (s) {
     var f = flagByKey(s.key);
     var byNumState = {};
-    manifest.returns.forEach(function (r) {
+    activeReturns.forEach(function (r) {
       var v = typedValue(r, f);
       if (isBlankValue(v)) { return; }
       var k = r.state_code || "—";
@@ -4866,7 +4871,7 @@ function openManifest() {
            '<div class="analytics-kpis" style="margin-bottom:8px;">' +
              '<div class="analytics-kpi"><strong>' + esc(tidyNumber(s.sum)) + '</strong><span>Total</span></div>' +
              '<div class="analytics-kpi"><strong>' + esc(tidyNumber(s.avg)) + '</strong><span>Average</span></div>' +
-             '<div class="analytics-kpi"><strong>' + s.filled + "/" + manifest.returns.length +
+             '<div class="analytics-kpi"><strong>' + s.filled + "/" + activeReturns.length +
                '</strong><span>Filled</span></div>' +
            "</div>" +
            (Object.keys(byNumState).length > 1
@@ -4876,14 +4881,9 @@ function openManifest() {
          "</div>";
   }).join("");
 
-  /* Intake volume by date received — is the batch still arriving or has it
-     stalled, and which day had the most come in. Capped to the most recent
-     VOLUME_LIMIT distinct days so a folder spanning months does not turn
-     into an endless list; the note says how many are hidden rather than
-     silently dropping them. */
   var VOLUME_LIMIT = 30;
   var byDate = {};
-  manifest.returns.forEach(function (r) {
+  activeReturns.forEach(function (r) {
     if (!r.date_received) { return; }
     byDate[r.date_received] = (byDate[r.date_received] || 0) + 1;
   });
@@ -4912,22 +4912,43 @@ function openManifest() {
   var node = document.createElement("aside");
   node.className = "sheet manifest-sheet";
   node.innerHTML =
-    '<header><span class="grow">Manifest analytics</span><button class="ghost" data-act="close">Close</button></header>' +
-    '<div class="body">' +
-      '<div class="sect"><div class="micro">Analytics overview</div>' + analyticsHtml + "</div>" +
+    '<header style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--line);">' +
+      '<span style="font-weight:700; font-size:15px;">△ Delta Dashboard &amp; Exports</span>' +
+      '<button class="ghost" data-act="close">✕ Close</button>' +
+    '</header>' +
+    '<div class="body" style="padding:16px;">' +
+      '<div class="sect" style="margin-bottom:16px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px;">' +
+        '<div class="micro" style="margin-bottom:6px; font-weight:700; color:var(--ink);">Unified Exports</div>' +
+        '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">' +
+          '<button class="solid" data-act="export-all" style="background:var(--yes-ink); font-weight:700; padding:6px 12px;" title="Export Excel, Alpha Excel, Master Delta JSON, Session JSON and CSV in one action">⚡ Export All Formats</button>' +
+          '<button class="ghost micro" data-act="xlsx">Excel (.xlsx)</button>' +
+          '<button class="ghost micro" data-act="alpha">Alpha Excel</button>' +
+          '<button class="ghost micro" data-act="export-delta" style="color:var(--no-ink); font-weight:600;" title="Export master delta file containing all historical returns">△ Master Delta JSON</button>' +
+          '<button class="ghost micro" data-act="export-session" title="Export session JSON containing active date/view filtered returns">📅 Session JSON</button>' +
+          '<button class="ghost micro" data-act="csv">CSV</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sect" style="margin-bottom:16px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">' +
+        '<div class="micro" style="margin-bottom:6px; font-weight:700; color:var(--ink);">Settings</div>' +
+        '<label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px;">' +
+          '<input type="checkbox" id="deltaShortcutsToggle" ' + (prefs.shortcuts !== false ? "checked" : "") + '> ' +
+          'Enable Keyboard Shortcuts (Alt+K, Tab, Y/N/I, Space, Ctrl+A, etc.)' +
+        '</label>' +
+      '</div>' +
+      '<div class="sect"><div class="micro">Delta analytics overview</div>' + analyticsHtml + "</div>" +
       '<div class="sect"><div class="micro">Source</div><dl class="kv">' +
         "<dt>Folder</dt><dd>" + esc(manifest.assignment_folder || "—") + "</dd>" +
         "<dt>Generated</dt><dd>" + esc(manifest.generated_at || "—") + "</dd>" +
         "<dt>Imported</dt><dd>" + esc(source.name || "—") +
           (source.at ? " · " + esc(source.at.toLocaleTimeString()) : "") + "</dd>" +
-        "<dt>Returns</dt><dd>" + manifest.returns.length + "</dd>" +
+        "<dt>Returns</dt><dd>" + activeReturns.length + " (of " + manifest.returns.length + " total)</dd>" +
         "<dt>Unexported</dt><dd>" + dirty + " edit" + (dirty === 1 ? "" : "s") + "</dd>" +
       "</dl></div>" +
       '<div class="sect"><div class="micro">Needs attention · open issues</div>' + attentionHtml + "</div>" +
       '<div class="sect"><div class="micro">Aging · oldest not yet qualified</div>' + agingHtml + "</div>" +
       '<div class="sect"><div class="micro">Intake volume · by date received</div>' +
         '<div class="analytics-card"><div class="state-chart">' + volumeHtml + "</div></div></div>" +
-      '<div class="sect"><div class="micro">Progress by step</div><div class="steps">' + stepsHtml + "</div></div>" +
+        '<div class="sect"><div class="micro">Progress by step</div><div class="steps">' + stepsHtml + "</div></div>" +
       '<div class="sect"><div class="micro">State performance · top by volume</div>' +
         '<div class="analytics-card"><div class="state-chart">' + stateChartHtml + "</div>" +
         '<div class="chart-legend"><span><i style="background:var(--yes-ink)"></i>Qualified</span>' +
@@ -4939,12 +4960,9 @@ function openManifest() {
       customBreakdownHtml +
       '<div class="sect"><div class="micro">Flagged by intake</div><div class="flaglist">' + flaggedHtml + "</div></div>" +
     "</div>" +
-    '<footer>' +
-      '<button class="solid" data-act="xlsx">Export Excel</button>' +
-      '<button data-act="alpha">Alpha Export</button>' +
-      '<button data-act="json">Export JSON</button>' +
-      '<button data-act="csv">Export CSV</button>' +
-      '<button class="ghost grow" data-act="forget" title="Clear the localStorage safety copy">Clear saved session</button>' +
+    '<footer style="display:flex; gap:8px; align-items:center; justify-content:space-between; padding:12px 16px;">' +
+      '<button class="solid" data-act="export-all" style="background:var(--yes-ink); font-weight:700;">⚡ Export All Formats</button>' +
+      '<button class="ghost" data-act="forget" title="Clear the localStorage safety copy">Clear saved session</button>' +
     "</footer>";
 
   document.body.appendChild(scrim);
@@ -4952,6 +4970,16 @@ function openManifest() {
   sheet = { scrim: scrim, node: node };
 
   scrim.addEventListener("click", closeSheet);
+
+  var shortcutsChk = node.querySelector("#deltaShortcutsToggle");
+  if (shortcutsChk) {
+    shortcutsChk.addEventListener("change", function () {
+      prefs.shortcuts = this.checked;
+      savePrefs();
+      toast(prefs.shortcuts ? "Keyboard shortcuts enabled" : "Keyboard shortcuts disabled");
+    });
+  }
+
   node.addEventListener("click", function (ev) {
     var jump = ev.target.closest(".clickable-return");
     if (jump) {
@@ -4974,10 +5002,12 @@ function openManifest() {
       return;
     }
     var act = ev.target.getAttribute("data-act");
+    if (act === "export-all") { exportAll(); }
     if (act === "close")  { closeSheet(); }
     if (act === "xlsx")   { exportXlsx(); }
     if (act === "alpha")  { exportAlpha(); }
-    if (act === "json")   { exportJson(); }
+    if (act === "json" || act === "export-delta") { exportDeltaJson(); }
+    if (act === "export-session") { exportSessionJson(); }
     if (act === "csv")    { exportCsv(); }
     if (act === "forget") {
       try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
@@ -4994,8 +5024,24 @@ el.manifestBtn.addEventListener("click", openManifest);
    ===================================================================== */
 
 function exportJson() {
+  exportDeltaJson();
+}
+
+function exportDeltaJson() {
   if (!manifest) { return; }
-  saveBlob("manifest.json", new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json" }));
+  saveBlob("delta.json", new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json" }));
+  markDirty(0);
+}
+
+function exportSessionJson() {
+  if (!manifest) { return; }
+  var filteredReturns = (typeof getBaseFilteredReturns === "function" && filtersActive())
+    ? getBaseFilteredReturns()
+    : (view && view.length ? view : manifest.returns);
+  var sessionDate = (el.dateFilterStart && el.dateFilterStart.value) ? el.dateFilterStart.value : new Date().toISOString().slice(0, 10);
+  var filename = "session_returns_" + sessionDate + ".json";
+  var sessionData = Object.assign({}, manifest, { returns: filteredReturns });
+  saveBlob(filename, new Blob([JSON.stringify(sessionData, null, 2)], { type: "application/json" }));
   markDirty(0);
 }
 
@@ -5030,7 +5076,7 @@ function exportCsv() {
   var rows = exportableRows();
   if (!rows) { return; }
   var flags = getFlags();
-  var idTitle = (manifest.col_labels && manifest.col_labels.id) || "Return / ID";
+  var idTitle = (manifest.col_labels && manifest.col_labels.id) || "Return or Fund";
   var stateTitle = (manifest.col_labels && manifest.col_labels.state) || "State";
   var remarksTitle = (manifest.col_labels && manifest.col_labels.remarks) || "Remarks";
 
@@ -5321,9 +5367,9 @@ function exportAlpha() {
   if (!visible) { return; }
 
   var rows = [[
-    { v: "Return Name", s: S.head },
-    { v: "State Code", s: S.head },
-    { v: "Alpha Status / Remark", s: S.head }
+    { v: "Return or Fund", s: S.head },
+    { v: "State code", s: S.head },
+    { v: "Remarks", s: S.head }
   ]];
 
   visible.forEach(function (row) {
@@ -5354,7 +5400,7 @@ function exportXlsx() {
   if (!visible) { return; }
 
   var flags = getFlags();
-  var idTitle = (manifest.col_labels && manifest.col_labels.id) || "Return / ID";
+  var idTitle = (manifest.col_labels && manifest.col_labels.id) || "Return or Fund";
   var stateTitle = (manifest.col_labels && manifest.col_labels.state) || "State";
   var remarksTitle = (manifest.col_labels && manifest.col_labels.remarks) || "Remarks";
 
@@ -5407,9 +5453,10 @@ function exportXlsx() {
   var sheet1 = sheetXml(rows, { freeze: true, filter: true, widths: widths, tab: true });
 
   /* ---- sheet 2: summary ---- */
-  var total = manifest.returns.length;
+  var targetReturns = visible.map(function (row) { return row.ret; });
+  var total = targetReturns.length;
   var done = 0, issues = 0, fresh = 0, nostate = 0;
-  manifest.returns.forEach(function (r) {
+  targetReturns.forEach(function (r) {
     if (isDone(r)) { done++; }
     if (hasIssue(r)) { issues++; }
     if (isFresh(r)) { fresh++; }
@@ -5433,7 +5480,7 @@ function exportXlsx() {
      { v: "Issue", s: S.head }, { v: "Not started", s: S.head }]
   ];
 
-  var allStats = stepStats();
+  var allStats = stepStats(targetReturns);
   var stepRows = allStats.filter(function (s) { return s.type === "status"; });
   var dataRows = allStats.filter(function (s) { return s.type !== "status"; });
 
@@ -5468,7 +5515,7 @@ function exportXlsx() {
               { v: "Issues", s: S.head }, { v: "", s: S.head }]);
 
   var byState = {};
-  manifest.returns.forEach(function (r) {
+  targetReturns.forEach(function (r) {
     var k = r.state_code || "—";
     if (!byState[k]) { byState[k] = { n:0, done:0, issue:0 }; }
     byState[k].n++;
@@ -5579,6 +5626,7 @@ el.exportJson.addEventListener("click", exportJson);
 el.exportCsv.addEventListener("click", exportCsv);
 el.exportXlsx.addEventListener("click", exportXlsx);
 el.exportAlpha.addEventListener("click", exportAlpha);
+if (el.exportAll) { el.exportAll.addEventListener("click", exportAll); }
 
 /* =====================================================================
    12. Real-Time Auto-Persistence & Fancy Quick Notes Hub
@@ -5622,19 +5670,16 @@ function updateAutoSaveBadge(status) {
 
 function saveDraft() {
   if (!manifest) { return; }
-  /* manifest.quick_notes is the scratchpad, not the textarea. It used to be read
-     back out of the DOM here, which was fine while there was one box to read;
-     with the Notepad open there are two, and whichever one this happened to
-     name would overwrite what you had just typed in the other. Both boxes
-     write straight to the manifest on input instead. */
   var nowIso = new Date().toISOString();
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+    var payload = JSON.stringify({
       saved_at: nowIso,
       source: source.name,
       dirty: dirty,
       manifest: manifest
-    }));
+    });
+    localStorage.setItem(DRAFT_KEY, payload);
+    localStorage.setItem(MAIN_STORE_KEY, payload);
     storageOk = true;
     var timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     if (el.notesSaveTime) { el.notesSaveTime.textContent = "Saved locally (" + timeStr + ")"; }
@@ -5744,8 +5789,8 @@ function toggleLinkFile() {
   }
 
   window.showSaveFilePicker({
-    suggestedName: "manifest.json",
-    types: [{ description: "Manifest JSON", accept: { "application/json": [".json"] } }]
+    suggestedName: "delta.json",
+    types: [{ description: "Master Delta JSON", accept: { "application/json": [".json"] } }]
   }).then(function (picked) {
     fileHandle = picked;
     updateLinkBtn();
@@ -5982,20 +6027,23 @@ function resetSession() {
 
 function autoResumeSession() {
   var raw;
-  try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) { return false; }
+  try {
+    raw = localStorage.getItem(MAIN_STORE_KEY) || localStorage.getItem(DRAFT_KEY);
+  } catch (e) { return false; }
   if (!raw) { return false; }
   var draft;
   try { draft = JSON.parse(raw); } catch (e) { return false; }
-  if (!draft || !draft.manifest || !Array.isArray(draft.manifest.returns)) { return false; }
+  var m = draft && (draft.manifest || (draft.returns ? draft : null));
+  if (!m || !Array.isArray(m.returns)) { return false; }
 
   try {
-    adopt(draft.manifest, draft.source || "restored session");
-    markDirty(draft.dirty || 0);
-    var when = draft.saved_at ? new Date(draft.saved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "earlier";
+    adopt(m, (draft && draft.source) || "Master JSON Store");
+    if (draft && draft.dirty) { markDirty(draft.dirty); }
+    var when = (draft && draft.saved_at) ? new Date(draft.saved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "earlier";
     var b = banner("info",
-      '<span class="grow">Auto-resumed local working session from <b>' + esc(when) + '</b> (' +
-      draft.manifest.returns.length + ' returns' +
-      (draft.dirty ? ', ' + draft.dirty + ' edit' + (draft.dirty === 1 ? '' : 's') + ' to export' : '') +
+      '<span class="grow">Auto-resumed Master JSON Store from <b>' + esc(when) + '</b> (' +
+      manifest.returns.length + ' returns' +
+      (dirty ? ', ' + dirty + ' edit' + (dirty === 1 ? '' : 's') + ' to export' : '') +
       ').</span><button data-act="reset">Start New Session</button>');
 
     b.addEventListener("click", function (ev) {
@@ -6007,6 +6055,75 @@ function autoResumeSession() {
   } catch (err) {
     return false;
   }
+}
+
+function mergeManifest(incoming, label) {
+  var out = normalise(incoming);
+  var inc = out.manifest;
+
+  if (!manifest || !manifest.returns || manifest.returns.length === 0) {
+    adopt(inc, label);
+    return;
+  }
+
+  var existingMap = {};
+  manifest.returns.forEach(function (r) {
+    if (r.id) { existingMap["id:" + r.id] = r; }
+    if (r.filename && r.state_code) { existingMap["fn:" + r.filename + ":" + r.state_code] = r; }
+  });
+
+  var addedCount = 0;
+  var updatedCount = 0;
+  var now = todayISO();
+
+  inc.returns.forEach(function (r) {
+    var key1 = r.id ? "id:" + r.id : null;
+    var key2 = (r.filename && r.state_code) ? "fn:" + r.filename + ":" + r.state_code : null;
+    var hit = (key1 && existingMap[key1]) || (key2 && existingMap[key2]);
+
+    if (hit) {
+      if (r.status_flags) {
+        Object.keys(r.status_flags).forEach(function (k) {
+          if (r.status_flags[k] !== null && r.status_flags[k] !== undefined) {
+            hit.status_flags[k] = r.status_flags[k];
+          }
+        });
+      }
+      if (r.remarks && !hit.remarks) { hit.remarks = r.remarks; }
+      if (!hit.date_received && r.date_received) { hit.date_received = r.date_received; }
+      hit.last_worked = now;
+      updatedCount++;
+    } else {
+      r.date_received = r.date_received || now;
+      r.last_worked = now;
+      manifest.returns.push(r);
+      if (r.id) { existingMap["id:" + r.id] = r; }
+      addedCount++;
+    }
+  });
+
+  if (Array.isArray(inc.flags)) {
+    inc.flags.forEach(function (f) {
+      if (!manifest.flags.some(function (ef) { return ef.key === f.key; })) {
+        manifest.flags.push(f);
+      }
+    });
+  }
+
+  if (inc.assignment_folder && manifest.assignment_folder && manifest.assignment_folder.indexOf(inc.assignment_folder) === -1) {
+    manifest.assignment_folder += " + " + inc.assignment_folder;
+  }
+
+  buildHead();
+  buildStateFilter();
+  populateNoteReturnSelect();
+  render();
+  markDirty(addedCount + updatedCount);
+  saveDraft();
+
+  banner("info", '<b>Merged ' + (addedCount + updatedCount) + ' returns from ' + esc(label) +
+         ' into Main JSON Store.</b> (' + addedCount + ' new, ' + updatedCount + ' updated, ' +
+         manifest.returns.length + ' total returns).');
 }
 
 /* Add Row Modal & Multi-State Jurisdiction Functions */
@@ -6167,11 +6284,156 @@ function createNewRow() {
   saveDraft();
   populateNoteReturnSelect();
 
-  var tr = $("table").querySelector('tr[data-id="' + CSS.escape(idVal) + '"]');
-  if (tr) {
-    tr.scrollIntoView({ block: "center", behavior: "smooth" });
-    tr.classList.add("flash");
-    setTimeout(function () { tr.classList.remove("flash"); }, 1500);
+  if (newReturns.length > 0) {
+    var firstTr = $("table").querySelector('tr[data-id="' + CSS.escape(newReturns[0].id) + '"]');
+    if (firstTr) {
+      firstTr.scrollIntoView({ block: "center", behavior: "smooth" });
+      firstTr.classList.add("flash");
+      setTimeout(function () { firstTr.classList.remove("flash"); }, 1500);
+    }
+    toast("Added " + newReturns.length + " return row" + (newReturns.length === 1 ? "" : "s") + " to tracker.");
+  }
+}
+
+/* Calendar Modal Functions */
+var calendarYear = new Date().getFullYear();
+var calendarMonth = new Date().getMonth();
+var selectedCalDates = [];
+
+function openCalendarModal() {
+  var now = new Date();
+  calendarYear = now.getFullYear();
+  calendarMonth = now.getMonth();
+  if (el.calendarScrim) el.calendarScrim.classList.remove("hidden");
+  if (el.calendarModal) el.calendarModal.classList.remove("hidden");
+  renderCalendar();
+}
+
+function closeCalendarModal() {
+  if (el.calendarScrim) el.calendarScrim.classList.add("hidden");
+  if (el.calendarModal) el.calendarModal.classList.add("hidden");
+}
+
+function renderCalendar() {
+  if (!el.calendarGrid || !el.calMonthTitle) return;
+
+  var monthNames = ["January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December"];
+  el.calMonthTitle.textContent = monthNames[calendarMonth] + " " + calendarYear;
+
+  var dayHeadings = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var html = dayHeadings.map(function (d) {
+    return '<div class="micro" style="text-align:center; padding:4px 0; font-weight:700;">' + d + '</div>';
+  }).join("");
+
+  var firstDayIndex = new Date(calendarYear, calendarMonth, 1).getDay();
+  var daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+
+  for (var b = 0; b < firstDayIndex; b++) {
+    html += '<div style="min-height:54px; background:transparent;"></div>';
+  }
+
+  var todayStr = todayISO();
+  var returnsByDate = {};
+
+  if (manifest && Array.isArray(manifest.returns)) {
+    manifest.returns.forEach(function (r) {
+      var dt = r.date_received || r.last_worked;
+      if (dt) {
+        if (!returnsByDate[dt]) { returnsByDate[dt] = []; }
+        returnsByDate[dt].push(r);
+      }
+    });
+  }
+
+  for (var day = 1; day <= daysInMonth; day++) {
+    var monthStr = pad2(calendarMonth + 1);
+    var dayStr = pad2(day);
+    var dateStr = calendarYear + "-" + monthStr + "-" + dayStr;
+    var list = returnsByDate[dateStr] || [];
+    var isToday = dateStr === todayStr;
+    var isSelected = selectedCalDates.indexOf(dateStr) !== -1;
+
+    var borderStyle = isSelected ? 'border:2px solid var(--focus); background:var(--accent-glow, rgba(0,120,212,0.15));' : (isToday ? 'border:2px solid var(--yes-ink); background:var(--panel);' : 'border:1px solid var(--line); background:var(--panel);');
+    var badgeHtml = list.length > 0
+      ? '<span style="display:inline-block; font-size:10px; font-weight:700; background:var(--yes-bg); color:var(--yes-ink); border:1px solid var(--yes-line); border-radius:10px; padding:1px 6px; margin-top:4px;">' + list.length + (list.length === 1 ? ' fund' : ' funds') + '</span>'
+      : '';
+
+    html += '<div class="cal-day-cell" data-date="' + dateStr + '" style="min-height:56px; padding:4px 6px; border-radius:6px; cursor:pointer; ' + borderStyle + '">' +
+            '<div style="font-weight:700; font-size:12px; color:' + (isToday ? 'var(--yes-ink)' : 'var(--ink)') + ';">' + day + '</div>' +
+            badgeHtml +
+            '</div>';
+  }
+
+  el.calendarGrid.innerHTML = html;
+  updateCalendarSelection();
+}
+
+function selectCalendarDate(dateStr, isMulti) {
+  if (isMulti) {
+    var idx = selectedCalDates.indexOf(dateStr);
+    if (idx !== -1) {
+      selectedCalDates.splice(idx, 1);
+    } else {
+      selectedCalDates.push(dateStr);
+    }
+  } else {
+    selectedCalDates = [dateStr];
+  }
+  renderCalendar();
+}
+
+function updateCalendarSelection() {
+  if (!el.calDayDetails) return;
+  if (selectedCalDates.length === 0) {
+    el.calDayDetails.innerHTML = '<div style="color:var(--ink-3); font-size:12px;">Click a date (or Ctrl/Cmd-click two dates) to inspect returns.</div>';
+    return;
+  }
+
+  var list = [];
+  if (manifest && Array.isArray(manifest.returns)) {
+    list = manifest.returns.filter(function (r) {
+      var rDate = r.date_received || r.last_worked;
+      return selectedCalDates.indexOf(rDate) !== -1;
+    });
+  }
+
+  var dateLabel = selectedCalDates.join(", ");
+  var itemsHtml = list.length === 0
+    ? '<div style="color:var(--ink-3); font-size:12px; padding:6px 0;">No returns recorded for ' + esc(dateLabel) + '.</div>'
+    : list.map(function (r) {
+        var st = r.state_code || "No State";
+        var statusText = isDone(r) ? '🟢 Qualified' : (hasIssue(r) ? '🔴 Issue' : '🟡 In Progress');
+        return '<div style="display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--hair); font-size:12px;">' +
+               '<div><b>' + esc(r.id) + '</b> <span style="color:var(--ink-3);">(' + esc(st) + ')</span></div>' +
+               '<div style="display:flex; align-items:center; gap:8px;">' +
+                 '<span>' + statusText + '</span>' +
+                 '<span style="color:var(--ink-2); font-size:11px;">' + esc(r.remarks || "") + '</span>' +
+               '</div>' +
+               '</div>';
+      }).join("");
+
+  el.calDayDetails.innerHTML = '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">' +
+    '<div><b style="font-size:13px;">Selected Date(s): ' + esc(dateLabel) + '</b> (' + list.length + ' returns)</div>' +
+    '<button id="calFilterToDateBtn" class="solid micro">🔍 Filter Grid to Selected Date(s)</button>' +
+    '</div>' +
+    '<div style="max-height:160px; overflow-y:auto;">' + itemsHtml + '</div>';
+
+  var btn = el.calDayDetails.querySelector("#calFilterToDateBtn");
+  if (btn) {
+    btn.addEventListener("click", function () {
+      selectedMultiDates = selectedCalDates.slice();
+      if (selectedCalDates.length === 1) {
+        if (el.dateFilterStart) el.dateFilterStart.value = selectedCalDates[0];
+        if (el.dateFilterEnd) el.dateFilterEnd.value = "";
+      } else if (selectedCalDates.length > 1) {
+        if (el.dateFilterStart) el.dateFilterStart.value = selectedCalDates[0];
+        if (el.dateFilterEnd) el.dateFilterEnd.value = selectedCalDates[selectedCalDates.length - 1];
+      }
+      closeCalendarModal();
+      render();
+      toast("Grid filtered to selected date(s): " + dateLabel);
+    });
   }
 }
 
@@ -6516,6 +6778,119 @@ if (el.closeAddRowBtn) { el.closeAddRowBtn.addEventListener("click", closeAddRow
 if (el.cancelAddRowBtn) { el.cancelAddRowBtn.addEventListener("click", closeAddRowModal); }
 if (el.addRowScrim) { el.addRowScrim.addEventListener("click", closeAddRowModal); }
 if (el.submitAddRowBtn) { el.submitAddRowBtn.addEventListener("click", createNewRow); }
+
+if (el.toggleMultiStateBtn) {
+  el.toggleMultiStateBtn.addEventListener("click", function () {
+    if (el.multiStateBox) {
+      el.multiStateBox.classList.toggle("hidden");
+      if (!el.multiStateBox.classList.contains("hidden") && el.multiStateSearch) {
+        el.multiStateSearch.focus();
+      }
+    }
+  });
+}
+if (el.multiStateSearch) {
+  el.multiStateSearch.addEventListener("input", function () {
+    jumpToMultiState(this.value);
+  });
+  el.multiStateSearch.addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      var topMatch = jumpToMultiState(this.value);
+      if (topMatch) {
+        var chk = topMatch.querySelector("input[type=checkbox]");
+        if (chk) {
+          chk.checked = !chk.checked;
+          updateMultiStateCount();
+        }
+      }
+    }
+  });
+}
+if (el.selectAllStatesBtn) {
+  el.selectAllStatesBtn.addEventListener("click", function () {
+    if (!el.multiStateGrid) return;
+    var chks = el.multiStateGrid.querySelectorAll(".multi-state-chk");
+    for (var i = 0; i < chks.length; i++) { chks[i].checked = true; }
+    updateMultiStateCount();
+  });
+}
+if (el.clearAllStatesBtn) {
+  el.clearAllStatesBtn.addEventListener("click", function () {
+    if (!el.multiStateGrid) return;
+    var chks = el.multiStateGrid.querySelectorAll(".multi-state-chk");
+    for (var i = 0; i < chks.length; i++) { chks[i].checked = false; }
+    updateMultiStateCount();
+  });
+}
+if (el.multiStateGrid) {
+  el.multiStateGrid.addEventListener("change", updateMultiStateCount);
+}
+
+if (el.toggleDateRangeBtn) {
+  el.toggleDateRangeBtn.addEventListener("click", function () {
+    if (!el.dateFilterEnd) return;
+    var isHidden = el.dateFilterEnd.classList.contains("hidden");
+    if (isHidden) {
+      el.dateFilterEnd.classList.remove("hidden");
+      if (el.dateToSpan) el.dateToSpan.classList.remove("hidden");
+      this.textContent = "- Single Date";
+    } else {
+      el.dateFilterEnd.classList.add("hidden");
+      el.dateFilterEnd.value = "";
+      if (el.dateToSpan) el.dateToSpan.classList.add("hidden");
+      this.textContent = "+ Range";
+      render();
+    }
+  });
+}
+
+if (el.calendarBtn) { el.calendarBtn.addEventListener("click", openCalendarModal); }
+if (el.closeCalendarBtn) { el.closeCalendarBtn.addEventListener("click", closeCalendarModal); }
+if (el.calendarScrim) { el.calendarScrim.addEventListener("click", closeCalendarModal); }
+if (el.calPrevMonthBtn) {
+  el.calPrevMonthBtn.addEventListener("click", function () {
+    calendarMonth--;
+    if (calendarMonth < 0) { calendarMonth = 11; calendarYear--; }
+    renderCalendar();
+  });
+}
+if (el.calNextMonthBtn) {
+  el.calNextMonthBtn.addEventListener("click", function () {
+    calendarMonth++;
+    if (calendarMonth > 11) { calendarMonth = 0; calendarYear++; }
+    renderCalendar();
+  });
+}
+if (el.calendarGrid) {
+  el.calendarGrid.addEventListener("click", function (ev) {
+    var cell = ev.target.closest(".cal-day-cell");
+    if (!cell) return;
+    var d = cell.getAttribute("data-date");
+    if (d) {
+      var isMulti = ev.ctrlKey || ev.metaKey;
+      selectCalendarDate(d, isMulti);
+    }
+  });
+}
+
+/* File Drag & Drop for batch multi-JSON integration */
+window.addEventListener("dragover", function (e) {
+  if (e.dataTransfer && e.dataTransfer.types && Array.prototype.slice.call(e.dataTransfer.types).indexOf("Files") !== -1) {
+    e.preventDefault();
+  }
+});
+window.addEventListener("drop", function (e) {
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    var files = Array.prototype.slice.call(e.dataTransfer.files).filter(function (f) {
+      return f.name.toLowerCase().endsWith(".json") || f.type === "application/json";
+    });
+    if (files.length > 0) {
+      e.preventDefault();
+      readMultipleFiles(files);
+    }
+  }
+});
 
 /* There is deliberately no rename handler on the header. Renaming a column is a
    change to the manifest that every export carries, so it lives behind
@@ -7232,61 +7607,6 @@ function closeHelp() {
 }
 
 function toggleHelp() { if (helpOpen()) { closeHelp(); } else { openHelp(); } }
-
-if (el.addRowBtn) { el.addRowBtn.addEventListener("click", openAddRowModal); }
-if (el.emptyAddRowBtn) { el.emptyAddRowBtn.addEventListener("click", openAddRowModal); }
-if (el.closeAddRowBtn) { el.closeAddRowBtn.addEventListener("click", closeAddRowModal); }
-if (el.cancelAddRowBtn) { el.cancelAddRowBtn.addEventListener("click", closeAddRowModal); }
-if (el.addRowScrim) { el.addRowScrim.addEventListener("click", closeAddRowModal); }
-if (el.submitAddRowBtn) { el.submitAddRowBtn.addEventListener("click", createNewRow); }
-
-if (el.toggleMultiStateBtn) {
-  el.toggleMultiStateBtn.addEventListener("click", function () {
-    if (el.multiStateBox) {
-      el.multiStateBox.classList.toggle("hidden");
-      if (!el.multiStateBox.classList.contains("hidden") && el.multiStateSearch) {
-        el.multiStateSearch.focus();
-      }
-    }
-  });
-}
-if (el.multiStateSearch) {
-  el.multiStateSearch.addEventListener("input", function () {
-    jumpToMultiState(this.value);
-  });
-  el.multiStateSearch.addEventListener("keydown", function (ev) {
-    if (ev.key === "Enter") {
-      ev.preventDefault();
-      var topMatch = jumpToMultiState(this.value);
-      if (topMatch) {
-        var chk = topMatch.querySelector("input[type=checkbox]");
-        if (chk) {
-          chk.checked = !chk.checked;
-          updateMultiStateCount();
-        }
-      }
-    }
-  });
-}
-if (el.selectAllStatesBtn) {
-  el.selectAllStatesBtn.addEventListener("click", function () {
-    if (!el.multiStateGrid) return;
-    var chks = el.multiStateGrid.querySelectorAll(".multi-state-chk");
-    for (var i = 0; i < chks.length; i++) { chks[i].checked = true; }
-    updateMultiStateCount();
-  });
-}
-if (el.clearAllStatesBtn) {
-  el.clearAllStatesBtn.addEventListener("click", function () {
-    if (!el.multiStateGrid) return;
-    var chks = el.multiStateGrid.querySelectorAll(".multi-state-chk");
-    for (var i = 0; i < chks.length; i++) { chks[i].checked = false; }
-    updateMultiStateCount();
-  });
-}
-if (el.multiStateGrid) {
-  el.multiStateGrid.addEventListener("change", updateMultiStateCount);
-}
 
 if (el.helpBtn)    { el.helpBtn.addEventListener("click", toggleHelp); }
 if (el.helpClose)  { el.helpClose.addEventListener("click", closeHelp); }
