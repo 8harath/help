@@ -1651,7 +1651,12 @@ body.shortcuts-off #keyhints { display: none; }
     <option value="none">Not started</option>
     <option value="nostate">Needs a state</option>
   </select>
-  <button id="clearFiltersBtn" class="ghost clear-filters hidden" title="Clear the search and both filters (Alt+R)">✕ Clear filters</button>
+  <span class="micro" style="margin-left:4px;">Date:</span>
+  <input type="date" id="dateFilterStart" title="Filter returns by date (single date or start of range)" aria-label="Filter start date" style="padding:3px 6px; border:1px solid var(--hair); border-radius:5px; font-size:12px; max-width:125px; background:var(--panel); color:var(--ink);">
+  <button id="toggleDateRangeBtn" type="button" class="ghost micro" style="padding:2px 5px;" title="Toggle end date range option">+ Range</button>
+  <span id="dateToSpan" class="micro hidden">to</span>
+  <input type="date" id="dateFilterEnd" class="hidden" title="Filter returns to end date" aria-label="Filter end date" style="padding:3px 6px; border:1px solid var(--hair); border-radius:5px; font-size:12px; max-width:125px; background:var(--panel); color:var(--ink);">
+  <button id="clearFiltersBtn" class="ghost clear-filters hidden" title="Clear search, state, status, and date filters (Alt+R)">✕ Clear filters</button>
   <button id="groupBtn" title="Cluster rows by state">Group by state</button>
   <button id="viewBtn" title="Columns, density and input options">View</button>
   <button id="linkFileBtn" title="Write every change straight into manifest.json on disk">Link file</button>
@@ -2185,6 +2190,8 @@ var el = {
   toolbar: $("toolbar"), gridwrap: $("gridwrap"), colgroup: $("colgroup"),
   headRow: $("headRow"), rows: $("rows"), empty: $("empty"), pills: $("pills"),
   search: $("search"), stateFilter: $("stateFilter"), statusFilter: $("statusFilter"),
+  dateFilterStart: $("dateFilterStart"), dateFilterEnd: $("dateFilterEnd"),
+  toggleDateRangeBtn: $("toggleDateRangeBtn"), dateToSpan: $("dateToSpan"),
   clearFiltersBtn: $("clearFiltersBtn"),
   groupBtn: $("groupBtn"), viewBtn: $("viewBtn"), manifestBtn: $("manifestBtn"),
   exportXlsx: $("exportXlsx"), exportAlpha: $("exportAlpha"),
@@ -3004,10 +3011,44 @@ function compare(a, b) {
   return byId() * d;
 }
 
+var selectedMultiDates = [];
+
+function getBaseFilteredReturns() {
+  if (!manifest || !manifest.returns) return [];
+  var q = el.search ? el.search.value.trim().toLowerCase() : "";
+  var st = el.stateFilter ? el.stateFilter.value : "";
+  var ds = el.dateFilterStart ? el.dateFilterStart.value : "";
+  var de = el.dateFilterEnd ? el.dateFilterEnd.value : "";
+
+  return manifest.returns.filter(function (r) {
+    if (q) {
+      var hay = (r.id + " " + r.filename + " " + r.remarks + " " +
+                 (r.state_code || "") + " " + (r.state_name || "")).toLowerCase();
+      if (hay.indexOf(q) === -1) { return false; }
+    }
+    if (st === "__none__") { if (r.state_code) { return false; } }
+    else if (st && r.state_code !== st) { return false; }
+
+    var rDate = r.date_received || r.last_worked || "";
+    if (selectedMultiDates && selectedMultiDates.length > 0) {
+      if (selectedMultiDates.indexOf(rDate) === -1) { return false; }
+    } else {
+      if (ds && de) {
+        if (!rDate || rDate < ds || rDate > de) { return false; }
+      } else if (ds) {
+        if (rDate !== ds) { return false; }
+      }
+    }
+    return true;
+  });
+}
+
 function computeView() {
   var q = el.search.value.trim().toLowerCase();
   var st = el.stateFilter.value;
   var status = el.statusFilter.value;
+  var ds = el.dateFilterStart ? el.dateFilterStart.value : "";
+  var de = el.dateFilterEnd ? el.dateFilterEnd.value : "";
 
   var list = manifest.returns.map(function (ret, i) { return { ret: ret, i: i }; });
 
@@ -3027,6 +3068,18 @@ function computeView() {
     if (status === "none"     && !isFresh(r))  { return false; }
     if (status === "progress" && (isFresh(r) || isDone(r))) { return false; }
     if (status === "nostate"  && r.state_code) { return false; }
+
+    var rDate = r.date_received || r.last_worked || "";
+    if (selectedMultiDates && selectedMultiDates.length > 0) {
+      if (selectedMultiDates.indexOf(rDate) === -1) { return false; }
+    } else {
+      if (ds && de) {
+        if (!rDate || rDate < ds || rDate > de) { return false; }
+      } else if (ds) {
+        if (rDate !== ds) { return false; }
+      }
+    }
+
     return true;
   });
 
@@ -3252,7 +3305,23 @@ function renderPills() {
 }
 
 function filtersActive() {
-  return !!(el.search.value || el.stateFilter.value || el.statusFilter.value !== "all");
+  return !!(el.search.value || el.stateFilter.value || el.statusFilter.value !== "all" ||
+            (el.dateFilterStart && el.dateFilterStart.value) ||
+            (el.dateFilterEnd && el.dateFilterEnd.value) ||
+            (selectedMultiDates && selectedMultiDates.length > 0));
+}
+
+function clearFilters() {
+  el.search.value = "";
+  el.stateFilter.value = "";
+  el.statusFilter.value = "all";
+  if (el.dateFilterStart) el.dateFilterStart.value = "";
+  if (el.dateFilterEnd) el.dateFilterEnd.value = "";
+  if (el.dateToSpan) el.dateToSpan.classList.add("hidden");
+  if (el.dateFilterEnd) el.dateFilterEnd.classList.add("hidden");
+  if (el.toggleDateRangeBtn) el.toggleDateRangeBtn.textContent = "+ Range";
+  selectedMultiDates = [];
+  render();
 }
 
 function paintFilterState() {
@@ -4286,6 +4355,24 @@ el.viewBtn.addEventListener("click", function () {
     }
   });
 });
+
+if (el.toggleDateRangeBtn) {
+  el.toggleDateRangeBtn.addEventListener("click", function () {
+    if (!el.dateFilterEnd) return;
+    var isHidden = el.dateFilterEnd.classList.contains("hidden");
+    if (isHidden) {
+      el.dateFilterEnd.classList.remove("hidden");
+      if (el.dateToSpan) el.dateToSpan.classList.remove("hidden");
+      this.textContent = "✕ Range";
+    } else {
+      el.dateFilterEnd.value = "";
+      el.dateFilterEnd.classList.add("hidden");
+      if (el.dateToSpan) el.dateToSpan.classList.add("hidden");
+      this.textContent = "+ Range";
+      render();
+    }
+  });
+}
 
 /* =====================================================================
    10. Manifest panel
