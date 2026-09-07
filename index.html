@@ -2714,7 +2714,14 @@ function readFile(file) {
   var fr = new FileReader();
   fr.onload = function () {
     var text = String(fr.result || "").replace(/^﻿/, "");
-    try { adopt(JSON.parse(text), file.name); }
+    try {
+      var parsed = JSON.parse(text);
+      if (manifest && manifest.returns && manifest.returns.length > 0) {
+        mergeManifest(parsed, file.name);
+      } else {
+        adopt(parsed, file.name);
+      }
+    }
     catch (err) {
       clearBanners();
       banner("err", "<b>Could not import " + esc(file.name) + ":</b> " + esc(err.message));
@@ -2722,6 +2729,135 @@ function readFile(file) {
   };
   fr.onerror = function () { clearBanners(); banner("err", "Could not read " + esc(file.name) + "."); };
   fr.readAsText(file);
+}
+
+function readMultipleFiles(files) {
+  var fileArray = Array.prototype.slice.call(files);
+  var jsonFiles = fileArray.filter(function (f) {
+    return f.name.toLowerCase().endsWith(".json") || f.type === "application/json";
+  });
+
+  if (jsonFiles.length === 0) {
+    clearBanners();
+    banner("err", "No valid JSON files selected for import.");
+    return;
+  }
+
+  var promises = jsonFiles.map(function (file) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onload = function () {
+        try {
+          var text = String(fr.result || "").replace(/^﻿/, "");
+          var parsed = JSON.parse(text);
+          resolve({ file: file, parsed: parsed });
+        } catch (err) {
+          reject({ file: file, err: err });
+        }
+      };
+      fr.onerror = function () { reject({ file: file, err: new Error("Read error") }); };
+      fr.readAsText(file);
+    });
+  });
+
+  Promise.allSettled(promises).then(function (results) {
+    var successCount = 0;
+    var errorFiles = [];
+
+    results.forEach(function (res) {
+      if (res.status === "fulfilled") {
+        var item = res.value;
+        if (manifest && manifest.returns && manifest.returns.length > 0) {
+          mergeManifest(item.parsed, item.file.name);
+        } else {
+          adopt(item.parsed, item.file.name);
+        }
+        successCount++;
+      } else {
+        errorFiles.push(res.reason ? res.reason.file.name : "unknown");
+      }
+    });
+
+    saveDraft();
+    render();
+    clearBanners();
+
+    if (successCount > 0) {
+      banner("info", "<b>Integrated " + successCount + " JSON file(s) into Master Store.</b> (" + manifest.returns.length + " total returns)");
+    }
+    if (errorFiles.length > 0) {
+      banner("warn", "Could not parse " + errorFiles.length + " file(s): " + errorFiles.join(", "));
+    }
+  });
+}
+
+function mergeManifest(incoming, label) {
+  var out = normalise(incoming);
+  var inc = out.manifest;
+
+  if (!manifest || !manifest.returns || manifest.returns.length === 0) {
+    adopt(inc, label);
+    return;
+  }
+
+  var existingMap = {};
+  manifest.returns.forEach(function (r) {
+    if (r.id) { existingMap["id:" + r.id] = r; }
+    if (r.filename && r.state_code) { existingMap["fn:" + r.filename + ":" + r.state_code] = r; }
+  });
+
+  var addedCount = 0;
+  var updatedCount = 0;
+  var now = todayISO();
+
+  inc.returns.forEach(function (r) {
+    var key1 = r.id ? "id:" + r.id : null;
+    var key2 = (r.filename && r.state_code) ? "fn:" + r.filename + ":" + r.state_code : null;
+    var hit = (key1 && existingMap[key1]) || (key2 && existingMap[key2]);
+
+    if (hit) {
+      if (r.status_flags) {
+        Object.keys(r.status_flags).forEach(function (k) {
+          if (r.status_flags[k] !== null && r.status_flags[k] !== undefined) {
+            hit.status_flags[k] = r.status_flags[k];
+          }
+        });
+      }
+      if (r.remarks && !hit.remarks) { hit.remarks = r.remarks; }
+      if (!hit.date_received && r.date_received) { hit.date_received = r.date_received; }
+      hit.last_worked = now;
+      updatedCount++;
+    } else {
+      r.date_received = r.date_received || now;
+      r.last_worked = now;
+      manifest.returns.push(r);
+      if (r.id) { existingMap["id:" + r.id] = r; }
+      addedCount++;
+    }
+  });
+
+  if (Array.isArray(inc.flags)) {
+    inc.flags.forEach(function (f) {
+      if (!manifest.flags.some(function (ef) { return ef.key === f.key; })) {
+        manifest.flags.push(f);
+      }
+    });
+  }
+
+  if (inc.assignment_folder && manifest.assignment_folder && manifest.assignment_folder.indexOf(inc.assignment_folder) === -1) {
+    manifest.assignment_folder += " + " + inc.assignment_folder;
+  }
+
+  buildHead();
+  buildStateFilter();
+  populateNoteReturnSelect();
+  render();
+  markDirty(addedCount + updatedCount);
+  saveDraft();
+
+  banner("info", '<b>Merged ' + (addedCount + updatedCount) + ' returns from ' + esc(label) +
+         ' into Main JSON Store.</b> (' + addedCount + ' new, ' + updatedCount + ' updated, ' +
+         manifest.returns.length + ' total returns).');
 }
 
 /* =====================================================================
