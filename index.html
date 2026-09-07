@@ -3269,10 +3269,12 @@ function buildFocusMap() {
 }
 
 function renderPills() {
-  var total = manifest.returns.length, done = 0, issues = 0, fresh = 0, nostate = 0;
+  var isDateFiltered = (el.dateFilterStart && el.dateFilterStart.value) || (el.dateFilterEnd && el.dateFilterEnd.value) || (selectedMultiDates && selectedMultiDates.length > 0);
+  var targetReturns = isDateFiltered ? getBaseFilteredReturns() : manifest.returns;
+  var total = targetReturns.length, done = 0, issues = 0, fresh = 0, nostate = 0;
   var filledCells = 0, allCells = 0;
 
-  manifest.returns.forEach(function (r) {
+  targetReturns.forEach(function (r) {
     var t = tally(r);
     /* A step marked yes and a data cell with something in it both count as work
        done; a no or an issue does not, because it is still outstanding. */
