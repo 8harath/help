@@ -5132,17 +5132,17 @@ function singleSheetWorkbook(sheetName, worksheetXml) {
 
 function exportAlpha() {
   if (!manifest) { return; }
+  var visible = exportableRows();
+  if (!visible) { return; }
 
   var rows = [[
-    { v: "Return / ID", s: S.head },
-    { v: "State code", s: S.head },
-    { v: "Remarks", s: S.head }
+    { v: "Return Name", s: S.head },
+    { v: "State Code", s: S.head },
+    { v: "Alpha Status / Remark", s: S.head }
   ]];
 
-  /* Alpha Export always writes the complete CRM, regardless of search or
-     filters. Completed means every status field is Yes, which is the same
-     qualification rule used everywhere else in the tracker. */
-  manifest.returns.forEach(function (r) {
+  visible.forEach(function (row) {
+    var r = row.ret;
     var qualified = isDone(r);
     var returnId = String(r.filename || r.id || "").replace(/\.pdf$/i, "");
     rows.push([
@@ -5159,8 +5159,8 @@ function exportAlpha() {
     tab: true
   });
   saveBlob("alpha-export-" + stamp() + ".xlsx", singleSheetWorkbook("Alpha Export", sheet));
-  toast("Alpha Export created · " + manifest.returns.length + " CRM record" +
-        (manifest.returns.length === 1 ? "" : "s"));
+  toast("Alpha Export created · " + visible.length + " CRM record" +
+        (visible.length === 1 ? "" : "s"));
 }
 
 function exportXlsx() {
