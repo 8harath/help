@@ -1662,16 +1662,21 @@ body.shortcuts-off #keyhints { display: none; }
   </div>
   <div class="rule"></div>
   <div class="group">
-    <label class="filelabel solid" for="fileInput" title="Load a manifest.json">Import</label>
-    <input type="file" id="fileInput" accept=".json,application/json">
-    <button id="manifestBtn" disabled title="Manifest details, per-step progress and flagged returns">Manifest</button>
+    <label class="filelabel solid" for="fileInput" title="Import daily or batch return JSON files">Import Daily JSON</label>
+    <input type="file" id="fileInput" accept=".json,application/json" multiple>
+    <button id="loadDeltaBtn" class="ghost" style="padding:4px 8px; font-weight:600;" title="Load historical master delta.json file">△ Load Master Delta</button>
+    <input type="file" id="deltaFileInput" accept=".json,application/json" class="hidden">
+    <button id="manifestBtn" class="delta-btn" title="Open △ Delta Dashboard (Analytics, Unified Exports, Settings)">△ Delta</button>
   </div>
   <div class="rule"></div>
   <div class="group">
     <button id="exportXlsx" disabled title="Real .xlsx workbook, formatted, 2 sheets">Export Excel</button>
     <button id="exportAlpha" disabled title="Offline .xlsx with return name, state code and qualification remark">Alpha Export</button>
-    <button id="exportJson" disabled title="Save file — re-importable (Ctrl+S)">Export JSON</button>
+    <button id="exportJson" disabled title="Save master delta file — re-importable (Ctrl+S)">Export JSON</button>
+    <button id="exportDeltaJson" class="hidden">Export Master Delta</button>
+    <button id="exportSessionJson" class="hidden">Export Session JSON</button>
     <button id="exportCsv" disabled title="Plain CSV of the visible rows">Export CSV</button>
+    <button id="exportAll" disabled class="solid" style="background:var(--yes-ink); border-color:var(--yes-ink);" title="Export Excel, Alpha, Master Delta, Session JSON & CSV at once">⚡ Export All</button>
   </div>
 </header>
 
@@ -2233,9 +2238,11 @@ var el = {
   dateFilterStart: $("dateFilterStart"), dateFilterEnd: $("dateFilterEnd"),
   toggleDateRangeBtn: $("toggleDateRangeBtn"), dateToSpan: $("dateToSpan"),
   clearFiltersBtn: $("clearFiltersBtn"),
+  loadDeltaBtn: $("loadDeltaBtn"), deltaFileInput: $("deltaFileInput"),
   groupBtn: $("groupBtn"), viewBtn: $("viewBtn"), manifestBtn: $("manifestBtn"),
   exportXlsx: $("exportXlsx"), exportAlpha: $("exportAlpha"),
-  exportJson: $("exportJson"), exportCsv: $("exportCsv"),
+  exportJson: $("exportJson"), exportDeltaJson: $("exportDeltaJson"),
+  exportSessionJson: $("exportSessionJson"), exportCsv: $("exportCsv"), exportAll: $("exportAll"),
   count: $("count"), dirtyLabel: $("dirty"),
   notesBtn: $("notesBtn"), resetSessionBtn: $("resetSessionBtn"),
   autoSaveBadge: $("autoSaveBadge"), linkFileBtn: $("linkFileBtn"), notesScrim: $("notesScrim"),
