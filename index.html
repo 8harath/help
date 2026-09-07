@@ -2385,6 +2385,20 @@ function banner(kind, html) {
   var d = document.createElement("div");
   d.className = "banner " + kind;
   d.innerHTML = html;
+  if (!d.querySelector('[data-act="close"]') && !d.querySelector('[data-act="dismiss"]') && !d.querySelector('.close-banner-btn')) {
+    var closeBtn = document.createElement("button");
+    closeBtn.className = "ghost close-banner-btn";
+    closeBtn.setAttribute("data-act", "dismiss");
+    closeBtn.setAttribute("title", "Dismiss notification");
+    closeBtn.style.marginLeft = "auto";
+    closeBtn.style.padding = "2px 7px";
+    closeBtn.style.cursor = "pointer";
+    closeBtn.style.fontWeight = "700";
+    closeBtn.style.fontSize = "12px";
+    closeBtn.style.borderRadius = "4px";
+    closeBtn.textContent = "✕";
+    d.appendChild(closeBtn);
+  }
   el.banners.appendChild(d);
   return d;
 }
@@ -5835,7 +5849,8 @@ function toggleLinkFile() {
 if (el.linkFileBtn) { el.linkFileBtn.addEventListener("click", toggleLinkFile); }
 
 el.banners.addEventListener("click", function (ev) {
-  if (ev.target.getAttribute("data-act") === "dismiss") {
+  var act = ev.target.getAttribute("data-act");
+  if (act === "dismiss" || act === "close" || ev.target.closest(".close-banner-btn")) {
     var b = ev.target.closest(".banner");
     if (b) { b.remove(); }
   }

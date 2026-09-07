@@ -1911,6 +1911,16 @@ test("Delta button is high-visibility and functional in light and dark mode", fu
   ok(sheet, "Delta sheet opens in dark mode");
 });
 
+test("blue info banners automatically include close button and dismiss on click", function () {
+  const t = open();
+  const bannerEl = t.win.banner("info", "<b>Test Info Message</b>");
+  ok(bannerEl, "info banner created");
+  const closeBtn = bannerEl.querySelector(".close-banner-btn, [data-act='dismiss']");
+  ok(closeBtn, "close button automatically appended to info banner");
+  click(closeBtn);
+  ok(!t.doc.body.contains(bannerEl), "banner removed from DOM when close button is clicked");
+});
+
 test("exportDeltaJson and exportSessionJson function correctly and exportAll includes both", function () {
   const t = open();
   t.win.adopt(fixture(2), "manifest.json");
