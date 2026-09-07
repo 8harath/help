@@ -1661,8 +1661,8 @@ body.shortcuts-off #keyhints { display: none; }
     <button id="notesBtn" title="Note cards, scratchpad and every open issue (Ctrl+N)">📝 Quick Notes</button>
     <button id="resetSessionBtn" class="ghost" title="Clear local session &amp; start fresh">↻ New Session</button>
   </div>
-  <div class="rule"></div>
-  <div class="group">
+  <div class="rule" id="importRule"></div>
+  <div class="group" id="importGroup">
     <label class="filelabel solid" for="fileInput" title="Import daily or batch return JSON files">Import Daily JSON</label>
     <input type="file" id="fileInput" accept=".json,application/json" multiple>
     <button id="loadDeltaBtn" class="ghost" style="padding:4px 8px; font-weight:600;" title="Load historical master delta.json file">△ Load Master Delta</button>
@@ -1699,11 +1699,6 @@ body.shortcuts-off #keyhints { display: none; }
     <option value="none">Not started</option>
     <option value="nostate">Needs a state</option>
   </select>
-  <span class="micro" style="margin-left:4px;">Date:</span>
-  <input type="date" id="dateFilterStart" title="Filter returns by date (single date or start of range)" aria-label="Filter start date" style="padding:3px 6px; border:1px solid var(--hair); border-radius:5px; font-size:12px; max-width:125px; background:var(--panel); color:var(--ink);">
-  <button id="toggleDateRangeBtn" type="button" class="ghost micro" style="padding:2px 5px;" title="Toggle end date range option">+ Range</button>
-  <span id="dateToSpan" class="micro hidden">to</span>
-  <input type="date" id="dateFilterEnd" class="hidden" title="Filter returns to end date" aria-label="Filter end date" style="padding:3px 6px; border:1px solid var(--hair); border-radius:5px; font-size:12px; max-width:125px; background:var(--panel); color:var(--ink);">
   <button id="clearFiltersBtn" class="ghost clear-filters hidden" title="Clear search, state, status, and date filters (Alt+R)">✕ Clear filters</button>
   <button id="groupBtn" title="Cluster rows by state">Group by state</button>
   <button id="viewBtn" title="Columns, density and input options">View</button>
@@ -2738,6 +2733,21 @@ function normalise(parsed) {
   return { manifest: parsed, reset: reset };
 }
 
+function updateImportVisibility() {
+  var importGrp = document.getElementById("importGroup");
+  var importRl = document.getElementById("importRule");
+  var hasData = manifest && Array.isArray(manifest.returns) && manifest.returns.length > 0;
+  if (importGrp) {
+    if (hasData) {
+      importGrp.classList.add("hidden");
+      if (importRl) importRl.classList.add("hidden");
+    } else {
+      importGrp.classList.remove("hidden");
+      if (importRl) importRl.classList.remove("hidden");
+    }
+  }
+}
+
 function adopt(parsed, label) {
   var out = normalise(parsed);
   manifest = out.manifest;
@@ -2760,6 +2770,7 @@ function adopt(parsed, label) {
   el.toolbar.classList.remove("hidden");
   el.gridwrap.classList.remove("hidden");
   el.empty.classList.add("hidden");
+  updateImportVisibility();
 
   buildHead();
   buildStateFilter();
@@ -3389,6 +3400,7 @@ function render() {
   paintAllPick();
   el.groupBtn.classList.toggle("on", prefs.group);
   document.body.classList.toggle("compact", prefs.compact);
+  updateImportVisibility();
 }
 
 /* The header box is ticked when everything on screen is, and indeterminate when
@@ -6020,6 +6032,7 @@ function resetSession() {
     updateLinkBtn();
     paintDirty();
     closeNotes();
+    updateImportVisibility();
   }
 
   if (!manifest) { wipe(); return; }

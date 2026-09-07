@@ -1717,7 +1717,7 @@ test("multi-jurisdiction row creation generates multiple state rows at once", as
   ok(ids.includes("Fund Alpha - TX"), "contains TX row for Fund Alpha");
 });
 
-test("date range filtering restricts grid rows to specified received dates", async function () {
+test("date filtering restricts grid rows to selected dates", async function () {
   const t = open();
   t.win.adopt({ returns: [
     { id: "Return-1", date_received: "2026-08-01", state_code: "CA" },
@@ -1726,15 +1726,11 @@ test("date range filtering restricts grid rows to specified received dates", asy
   ] }, "test");
   const doc = t.doc;
 
-  const start = doc.getElementById("dateFilterStart");
-  const end = doc.getElementById("dateFilterEnd");
-  start.value = "2026-08-10";
-  end.value = "2026-08-20";
-  fire(start, "change");
-  fire(end, "change");
+  t.win.selectedMultiDates = ["2026-08-15"];
+  t.win.render();
 
   const visibleRows = doc.querySelectorAll("#rows tr[data-id]");
-  eq(visibleRows.length, 1, "only 1 row in date range 2026-08-10 to 2026-08-20");
+  eq(visibleRows.length, 1, "only 1 row on selected date 2026-08-15");
   eq(visibleRows[0].getAttribute("data-id"), "Return-2");
 });
 
@@ -1784,7 +1780,7 @@ test("calendar tab opens and allows filtering grid to selected date", async func
   click(filterBtn);
 
   ok(doc.getElementById("calendarModal").classList.contains("hidden"), "calendar modal closed after filtering");
-  eq(doc.getElementById("dateFilterStart").value, "2026-08-11");
+  eq(t.win.selectedMultiDates[0], "2026-08-11");
 });
 
 test("multi-state picker quick jump by short form highlights and scrolls to matching state", function () {
@@ -1815,7 +1811,7 @@ test("date specific selection recalculates pills for that active date only", fun
   match(t.doc.getElementById("pills").textContent, /3returns/, "3 total returns initially");
 
   // Filter to single date 2026-09-01
-  t.doc.getElementById("dateFilterStart").value = "2026-09-01";
+  t.win.selectedMultiDates = ["2026-09-01"];
   t.win.render();
 
   // Pills must reflect ONLY 2026-09-01 returns (2 returns, 1 qualified)
@@ -1873,7 +1869,7 @@ test("Delta panel filters analytics by active date and excludes loc and pj_id ca
   t.win.adopt(manifestData, "test-manifest.json");
 
   // Filter UI to 2026-09-01
-  t.doc.getElementById("dateFilterStart").value = "2026-09-01";
+  t.win.selectedMultiDates = ["2026-09-01"];
   t.win.render();
 
   t.win.openManifest();
@@ -1883,6 +1879,22 @@ test("Delta panel filters analytics by active date and excludes loc and pj_id ca
   match(sheet.textContent, /1 \(of 2 total\)/, "shows 1 return in filtered active view");
   noMatch(sheet.textContent, /Breakdown by Loc/, "loc breakdown is excluded");
   noMatch(sheet.textContent, /Breakdown by PJ-ID/, "pj_id breakdown is excluded");
+});
+
+test("import buttons hide once data is imported and reappear on new session reset", function () {
+  const t = open();
+  const doc = t.doc;
+
+  const importGrp = doc.getElementById("importGroup");
+  ok(!importGrp.classList.contains("hidden"), "import group initially visible when no data loaded");
+
+  t.win.adopt({ returns: [{ id: "R1", state_code: "NY" }] }, "test-import.json");
+  ok(importGrp.classList.contains("hidden"), "import group hidden once data is imported");
+
+  t.win.resetSession();
+  const confirmBtn = doc.querySelector('[data-ask="ok"]');
+  if (confirmBtn) click(confirmBtn);
+  ok(!importGrp.classList.contains("hidden"), "import group visible again after resetting session");
 });
 
 test("Delta button is high-visibility and functional in light and dark mode", function () {
