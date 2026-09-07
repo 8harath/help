@@ -1989,6 +1989,18 @@ Leave a blank line between chunks and each one becomes a snippet on the right, w
       <button id="bulkDataClear" class="ghost" title="Empty this column on every selected row">Clear</button>
     </div>
   </div>
+<div id="commandScrim" class="scrim hidden"></div>
+<div id="commandModal" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="cmdInput" style="width: 600px; max-height: 500px; top: 10%; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(0,0,0,0.35); z-index: 50; display:flex; flex-direction:column; background:var(--panel);">
+  <header style="padding:10px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px;">
+    <span style="font-size:15px; color:var(--focus);">⚡</span>
+    <input type="search" id="cmdInput" placeholder="Search Return ID, state, or command (export, calendar, delta, theme)..." style="flex:1; padding:7px 10px; border:1px solid var(--hair); border-radius:6px; font-size:13px; background:var(--paper); color:var(--ink);" autocomplete="off">
+    <button id="closeCmdBtn" class="ghost micro" style="padding:4px 8px; font-weight:600;">✕</button>
+  </header>
+  <div id="cmdResults" style="padding:8px; max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;"></div>
+  <footer style="padding:6px 14px; border-top:1px solid var(--line); font-size:11px; color:var(--ink-3); display:flex; justify-content:space-between; background:var(--paper); border-radius:0 0 12px 12px;">
+    <span>Use <kbd style="padding:1px 4px; border:1px solid var(--line); border-radius:3px;">↑</kbd> <kbd style="padding:1px 4px; border:1px solid var(--line); border-radius:3px;">↓</kbd> to navigate, <kbd style="padding:1px 4px; border:1px solid var(--line); border-radius:3px;">Enter</kbd> to run</span>
+    <span><kbd style="padding:1px 4px; border:1px solid var(--line); border-radius:3px;">Esc</kbd> to close</span>
+  </footer>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -2252,6 +2264,8 @@ function savePrefs() {
 
 var $ = function (id) { return document.getElementById(id); };
 var el = {
+  commandScrim: $("commandScrim"), commandModal: $("commandModal"),
+  cmdInput: $("cmdInput"), cmdResults: $("cmdResults"), closeCmdBtn: $("closeCmdBtn"),
   fileInput: $("fileInput"), crumb: $("crumb"), banners: $("banners"),
   toolbar: $("toolbar"), gridwrap: $("gridwrap"), colgroup: $("colgroup"),
   headRow: $("headRow"), rows: $("rows"), empty: $("empty"), pills: $("pills"),
@@ -3356,7 +3370,10 @@ function cellHtml(col, ret) {
              '" placeholder="remark…" aria-label="Remarks for ' + esc(ret.id) + '"></td>';
 
     case "actions":
-      return '<td class="actionscell" style="text-align:center;">' +
+      return '<td class="actionscell" style="text-align:center; white-space:nowrap;">' +
+             '<button class="act-copy-row ghost" tabindex="-1" title="Copy Return details to clipboard" ' +
+               'aria-label="Copy ' + esc(ret.id) + '" ' +
+               'style="font-size:11px; padding:1px 5px; color:var(--ink-2); margin-right:4px;">📋</button>' +
              '<button class="act-del-row ghost" tabindex="-1" title="Delete this row" ' +
                'aria-label="Delete ' + esc(ret.id) + '" ' +
                'style="font-size:11px; padding:1px 5px; color:var(--ink-3);">✕</button></td>';
@@ -3917,9 +3934,54 @@ function undo() {
   saveDraft();
 }
 
+function copyReturnDetails(ret) {
+  if (!ret) return;
+  var state = ret.state_code || "No State";
+  var statusText = typeof overall === "function" ? overall(ret) : (isDone(ret) ? "Qualified" : (hasIssue(ret) ? "Issue" : "In progress"));
+  var remarks = ret.remarks || "";
+  var dateStr = ret.date_received || "";
+  var text = ret.id + " | State: " + state + " | Status: " + statusText +
+             (dateStr ? " | Date: " + dateStr : "") +
+             (remarks ? " | Remarks: " + remarks : "");
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () {
+      toast("📋 Copied details for " + ret.id + " to clipboard!");
+    }).catch(function () {
+      fallbackCopyText(text, ret.id);
+    });
+  } else {
+    fallbackCopyText(text, ret.id);
+  }
+}
+
+function fallbackCopyText(text, retId) {
+  var ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand("copy");
+    toast("📋 Copied details for " + retId + " to clipboard!");
+  } catch (e) {
+    toast("Failed to copy details to clipboard", "warn");
+  }
+  ta.remove();
+}
+
 /* ---- clicks in the grid ---- */
 
 el.rows.addEventListener("click", function (ev) {
+  var copyBtn = ev.target.closest(".act-copy-row");
+  if (copyBtn) {
+    var cctx = ctxOf(copyBtn);
+    if (!cctx) { return; }
+    copyReturnDetails(cctx.ret);
+    return;
+  }
   if (ev.target.closest('[data-act="clear-filters"]')) {
     clearFilters();
     return;
@@ -4211,6 +4273,161 @@ el.rows.addEventListener("keydown", function (ev) {
   if (prefs.advance) { step(r, c, 1); }
 });
 
+/* =====================================================================
+   Command Palette & Hotkeys
+   ===================================================================== */
+var selectedCmdIndex = 0;
+var cmdItems = [];
+
+function cmdModalOpen() {
+  return el.commandModal && !el.commandModal.classList.contains("hidden");
+}
+
+function openCommandPalette() {
+  if (!el.commandModal || !el.commandScrim) return;
+  el.commandScrim.classList.remove("hidden");
+  el.commandModal.classList.remove("hidden");
+  selectedCmdIndex = 0;
+  if (el.cmdInput) {
+    el.cmdInput.value = "";
+    el.cmdInput.focus();
+  }
+  renderCommandResults("");
+}
+
+function closeCommandPalette() {
+  if (!el.commandModal || !el.commandScrim) return;
+  el.commandScrim.classList.add("hidden");
+  el.commandModal.classList.add("hidden");
+  selectedCmdIndex = 0;
+}
+
+function getCommandActions() {
+  return [
+    { type: "action", icon: "⚡", label: "Export All Formats (5 Files)", desc: "Download Excel, Alpha, Delta JSON, Session JSON & CSV", act: function() { exportAll(); } },
+    { type: "action", icon: "📊", label: "Export Excel Workbook (.xlsx)", desc: "Structured Excel file with summary sheet", act: function() { exportXlsx(); } },
+    { type: "action", icon: "📋", label: "Export Alpha Excel", desc: "Alpha formatted spreadsheet export", act: function() { exportAlpha(); } },
+    { type: "action", icon: "△", label: "Export Master Delta JSON (delta.json)", desc: "Complete historical master database", act: function() { exportDeltaJson(); } },
+    { type: "action", icon: "📅", label: "Export Session JSON", desc: "Date-scoped returns for active session", act: function() { exportSessionJson(); } },
+    { type: "action", icon: "📄", label: "Export CSV", desc: "Comma-separated values spreadsheet file", act: function() { exportCsv(); } },
+    { type: "action", icon: "📅", label: "Open Returns Calendar (Alt+K)", desc: "Filter grid by working date or multi-dates", act: function() { openCalendarModal(); } },
+    { type: "action", icon: "△", label: "Open △ Delta Dashboard (Alt+M)", desc: "View analytics, exports & master delta actions", act: function() { openManifest(); } },
+    { type: "action", icon: "🗒️", label: "Open Notepad & Snippets (Alt+P)", desc: "Full-screen scratchpad with copyable text snippets", act: function() { openNotepad(); } },
+    { type: "action", icon: "📝", label: "Open Quick Notes (Ctrl+N)", desc: "Note cards, scratchpad & issue summary", act: function() { openNotes(); } },
+    { type: "action", icon: "➕", label: "Add New Return / Fund Row", desc: "Create a custom return or multi-state jurisdiction rows", act: function() { openAddRowModal(); } },
+    { type: "action", icon: "🌐", label: "Open Multi-State Picker", desc: "Select multiple state jurisdictions at once", act: function() { openAddRowModal(); if (el.toggleMultiStateBtn) el.toggleMultiStateBtn.click(); } },
+    { type: "action", icon: "◐", label: "Toggle Dark / Light Theme", desc: "Switch application visual theme", act: function() { toggleTheme(); } },
+    { type: "action", icon: "↻", label: "Start New Session", desc: "Clear local working session & start fresh", act: function() { resetSession(); } }
+  ];
+}
+
+function renderCommandResults(query) {
+  var q = (query || "").trim().toLowerCase();
+  cmdItems = [];
+
+  var actions = getCommandActions().filter(function (a) {
+    if (!q) return true;
+    return (a.label + " " + a.desc).toLowerCase().indexOf(q) !== -1;
+  });
+  cmdItems = cmdItems.concat(actions);
+
+  if (manifest && Array.isArray(manifest.returns)) {
+    var matchingReturns = manifest.returns.filter(function (r) {
+      if (!q) return false;
+      var text = (r.id + " " + (r.state_code || "") + " " + (r.state_name || "") + " " + (r.remarks || "")).toLowerCase();
+      return text.indexOf(q) !== -1;
+    }).slice(0, 15).map(function (r) {
+      return {
+        type: "return",
+        icon: "📄",
+        label: r.id + " (" + (r.state_code || "No State") + ")",
+        desc: (isDone(r) ? "🟢 Qualified" : (hasIssue(r) ? "🔴 Issue" : "🟡 In Progress")) + (r.remarks ? " · " + r.remarks : ""),
+        ret: r
+      };
+    });
+    cmdItems = cmdItems.concat(matchingReturns);
+  }
+
+  if (selectedCmdIndex >= cmdItems.length) { selectedCmdIndex = 0; }
+
+  if (cmdItems.length === 0) {
+    el.cmdResults.innerHTML = '<div style="padding:12px; color:var(--ink-3); text-align:center; font-size:12px;">No matching actions or returns found.</div>';
+    return;
+  }
+
+  var html = cmdItems.map(function (item, idx) {
+    var isSel = idx === selectedCmdIndex;
+    return '<div class="cmd-item' + (isSel ? " active" : "") + '" data-cmd-idx="' + idx + '" style="padding:7px 10px; border-radius:6px; display:flex; align-items:center; gap:10px; cursor:pointer; font-size:12.5px; background:' + (isSel ? 'var(--line)' : 'transparent') + ';">' +
+      '<span style="font-size:14px;">' + item.icon + '</span>' +
+      '<div style="flex:1; overflow:hidden;">' +
+        '<div style="font-weight:600; color:var(--ink);">' + esc(item.label) + '</div>' +
+        (item.desc ? '<div style="font-size:11px; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + esc(item.desc) + '</div>' : '') +
+      '</div>' +
+      (item.type === "return" ? '<span class="micro" style="color:var(--focus); font-weight:600;">Jump to Row ↵</span>' : '<span class="micro" style="color:var(--ink-3);">Run ↵</span>') +
+    '</div>';
+  }).join("");
+
+  el.cmdResults.innerHTML = html;
+}
+
+function executeSelectedCommand() {
+  if (selectedCmdIndex < 0 || selectedCmdIndex >= cmdItems.length) return;
+  var item = cmdItems[selectedCmdIndex];
+  closeCommandPalette();
+
+  if (item.type === "action" && typeof item.act === "function") {
+    item.act();
+  } else if (item.type === "return" && item.ret) {
+    var tr = $("table").querySelector('tr[data-id="' + CSS.escape(item.ret.id) + '"]');
+    if (tr) {
+      tr.scrollIntoView({ block: "center", behavior: "smooth" });
+      tr.classList.add("flash");
+      setTimeout(function () { tr.classList.remove("flash"); }, 1500);
+      var firstCell = tr.querySelector('[tabindex="0"], button, input');
+      if (firstCell) firstCell.focus();
+    }
+  }
+}
+
+if (el.closeCmdBtn) { el.closeCmdBtn.addEventListener("click", closeCommandPalette); }
+if (el.commandScrim) { el.commandScrim.addEventListener("click", closeCommandPalette); }
+if (el.cmdInput) {
+  el.cmdInput.addEventListener("input", function () {
+    selectedCmdIndex = 0;
+    renderCommandResults(this.value);
+  });
+  el.cmdInput.addEventListener("keydown", function (ev) {
+    if (ev.key === "ArrowDown") {
+      ev.preventDefault();
+      if (cmdItems.length > 0) {
+        selectedCmdIndex = (selectedCmdIndex + 1) % cmdItems.length;
+        renderCommandResults(this.value);
+      }
+    } else if (ev.key === "ArrowUp") {
+      ev.preventDefault();
+      if (cmdItems.length > 0) {
+        selectedCmdIndex = (selectedCmdIndex - 1 + cmdItems.length) % cmdItems.length;
+        renderCommandResults(this.value);
+      }
+    } else if (ev.key === "Enter") {
+      ev.preventDefault();
+      executeSelectedCommand();
+    } else if (ev.key === "Escape") {
+      ev.preventDefault();
+      closeCommandPalette();
+    }
+  });
+}
+if (el.cmdResults) {
+  el.cmdResults.addEventListener("click", function (ev) {
+    var item = ev.target.closest("[data-cmd-idx]");
+    if (item) {
+      selectedCmdIndex = parseInt(item.getAttribute("data-cmd-idx"), 10);
+      executeSelectedCommand();
+    }
+  });
+}
+
 /* A bare letter is a shortcut in the grid and a letter in a text box, so
    everything that is not modified has to check where the keypress came from
    first. Status cells are <button>s, which is why they are not caught here. */
@@ -4230,6 +4447,9 @@ document.addEventListener("keydown", function (ev) {
   var typing = inTextField(ev.target);
   var k = ev.key;
   var lower = typeof k === "string" && k.length === 1 ? k.toLowerCase() : k;
+
+  if (meta && lower === "k") { ev.preventDefault(); if (cmdModalOpen()) { closeCommandPalette(); } else { openCommandPalette(); } return; }
+  if (meta && ev.shiftKey && lower === "e") { ev.preventDefault(); if (manifest) { exportAll(); } return; }
 
   /* ---- help: ? and F1 ----
      `?` is what every keyboard-driven web app uses and no browser claims it.
@@ -4286,6 +4506,7 @@ document.addEventListener("keydown", function (ev) {
      selection is last: it is the only one of these that is not an overlay, so
      an Escape aimed at closing something never silently unticks 40 rows. */
   if (k === "Escape") {
+    if (cmdModalOpen()) { closeCommandPalette(); return; }
     if (askBox) { closeAsk(); return; }
     if (openMenu) { closeMenu(); return; }
     if (helpOpen()) { closeHelp(); return; }

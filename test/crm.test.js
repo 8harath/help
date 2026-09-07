@@ -1964,6 +1964,56 @@ test("loadDeltaBtn triggers file selection and links suggest delta.json", functi
   eq(pickedOptions.suggestedName, "delta.json", "link file suggests delta.json");
 });
 
+test("Command Palette opens with Ctrl+K, filters returns and executes actions", function () {
+  const t = open();
+  t.win.adopt({ returns: [{ id: "Return-CmdTest", state_code: "NY", remarks: "Command palette test" }] }, "test.json");
+  const doc = t.doc;
+
+  t.win.openCommandPalette();
+  const cmdModal = doc.getElementById("commandModal");
+  ok(!cmdModal.classList.contains("hidden"), "Command palette modal is open");
+
+  const input = doc.getElementById("cmdInput");
+  input.value = "Return-CmdTest";
+  t.win.renderCommandResults("Return-CmdTest");
+
+  const results = doc.getElementById("cmdResults");
+  match(results.textContent, /Return-CmdTest/, "shows matching return in search results");
+
+  t.win.executeSelectedCommand();
+  ok(cmdModal.classList.contains("hidden"), "Command palette closes upon selection");
+});
+
+test("Ctrl+Shift+E shortcut triggers exportAll", function () {
+  const t = open();
+  t.win.adopt({ returns: [{ id: "R1", state_code: "CA" }] }, "test.json");
+
+  let exportTriggered = false;
+  t.win.exportAll = function () { exportTriggered = true; };
+
+  fire(t.doc.body, "keydown", { key: "E", ctrlKey: true, shiftKey: true });
+  ok(exportTriggered, "Ctrl+Shift+E hotkey triggered exportAll");
+});
+
+test("copyReturnDetails copies return details string to clipboard", function () {
+  const t = open();
+  const ret = { id: "Return-1040", state_code: "CA", remarks: "Client review required", date_received: "2026-09-01" };
+  let copiedText = "";
+  Object.defineProperty(t.win.navigator, "clipboard", {
+    value: {
+      writeText: function (text) {
+        copiedText = text;
+        return Promise.resolve();
+      }
+    },
+    configurable: true
+  });
+
+  t.win.copyReturnDetails(ret);
+  match(copiedText, /Return-1040 \| State: CA/, "clipboard contains formatted return ID and state");
+  match(copiedText, /Remarks: Client review required/, "clipboard contains return remarks");
+});
+
 /* ------------------------------------------------------------------- main */
 
 (async function main() {
